@@ -4,6 +4,9 @@ import android.media.MediaRecorder;
 import android.os.Build;
 import android.view.Surface;
 
+import com.zcc.mediarecorder.EventManager;
+import com.zcc.mediarecorder.common.ErrorCode;
+
 import java.io.IOException;
 
 import androidx.annotation.RequiresApi;
@@ -34,7 +37,9 @@ public class MediaRecorderEncoderCore implements IVideoEncoderCore {
         mMediaRecorder.setOnErrorListener(new MediaRecorder.OnErrorListener() {
             @Override
             public void onError(MediaRecorder mr, int what, int extra) {
-                android.util.Log.e("zcc", "mr error" + what + "extra" + extra);
+                EventManager.get().sendMsg(ErrorCode.ERORR_MEDIA_COMMON,
+                        "mediarecorder erorr: what:" + what + "extra: " + extra + "msg");
+                mr.release();
             }
         });
         mMediaRecorder.setOnInfoListener(new MediaRecorder.OnInfoListener() {
@@ -50,9 +55,10 @@ public class MediaRecorderEncoderCore implements IVideoEncoderCore {
             mMediaRecorder.prepare();
         } catch (IOException e) {
             e.printStackTrace();
+            EventManager.get().sendMsg(ErrorCode.ERORR_MEDIA_COMMON,
+                    "media Recorder prepare error: " + e.getMessage());
         }
     }
-
 
     @Override
     public Surface getInputSurface() {

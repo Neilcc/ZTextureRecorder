@@ -24,7 +24,9 @@ import android.view.Surface;
 
 import com.zcc.mediarecorder.ALog;
 import com.zcc.mediarecorder.AudioRecorderThread2;
+import com.zcc.mediarecorder.EventManager;
 import com.zcc.mediarecorder.MuxerHolder;
+import com.zcc.mediarecorder.common.ErrorCode;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -43,7 +45,6 @@ public class MediaCodecEncoderCore implements IVideoEncoderCore {
     private static final String TAG = "MediaCodecEncoderCore";
     private static final boolean VERBOSE = true;
 
-    // TODO: these ought to be configurable as well
     private static final String MIME_TYPE = "video/avc";    // H.264 Advanced Video Coding
     private static final int FRAME_RATE = 30;               // 30fps
     private static final int IFRAME_INTERVAL = 5;           // 5 seconds between I-frames
@@ -54,7 +55,6 @@ public class MediaCodecEncoderCore implements IVideoEncoderCore {
     private MediaCodec mEncoder;
     private MediaCodec.BufferInfo mBufferInfo;
     private int mTrackIndex;
-    private long lastPresentationTime = 0;
 
     /**
      * Configures encoder and muxer state, and prepares the input Surface.
@@ -67,6 +67,7 @@ public class MediaCodecEncoderCore implements IVideoEncoderCore {
         } catch (IOException e) {
             e.printStackTrace();
             ALog.e(TAG, "create muxer error");
+            EventManager.get().sendMsg(ErrorCode.ERORR_MEDIA_COMMON, "create muxer error");
         }
         MediaFormat format = MediaFormat.createVideoFormat(MIME_TYPE, width, height);
 
