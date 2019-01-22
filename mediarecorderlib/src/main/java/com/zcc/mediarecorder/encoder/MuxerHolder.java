@@ -1,6 +1,8 @@
-package com.zcc.mediarecorder;
+package com.zcc.mediarecorder.encoder;
 
 import android.media.MediaMuxer;
+
+import com.zcc.mediarecorder.ALog;
 
 import java.io.IOException;
 
@@ -98,28 +100,30 @@ public class MuxerHolder {
      * @return
      */
     public synchronized long getPTSUs() {
-        long result = 0, thisNanoTime = System.nanoTime();
+//        long result = 0, thisNanoTime = System.nanoTime();
+//
+//        if (firstTimeStampBase == 0) {
+//            result = thisNanoTime;
+//        } else {
+//            if (firstNanoTime == 0) firstNanoTime = thisNanoTime;
+//            long elapsedTime = thisNanoTime - firstNanoTime;
+//            result = firstTimeStampBase + elapsedTime;
+//        }
+//
+//        result = result / 1000L;
+//
+//        if (result < prevOutputPTSUs) {
+//            result = (prevOutputPTSUs - result) + result;
+//        }
+//
+//        if (result == prevOutputPTSUs) {
+//            // yep another magic number which I don't fucking know either.
+//            // AAC frame magic number;
+//            result += 43219;
+//        }
+//
+//        return prevOutputPTSUs = result;
 
-        if (firstTimeStampBase == 0) {
-            result = thisNanoTime;
-        } else {
-            if (firstNanoTime == 0) firstNanoTime = thisNanoTime;
-            long elapsedTime = thisNanoTime - firstNanoTime;
-            result = firstTimeStampBase + elapsedTime;
-        }
-
-        result = result / 1000L;
-
-        if (result < prevOutputPTSUs) {
-            result = (prevOutputPTSUs - result) + result;
-        }
-
-        if (result == prevOutputPTSUs) {
-            // yep another magic number which I don't fucking know either.
-            // AAC frame magic number;
-            result += 43219;
-        }
-
-        return prevOutputPTSUs = result;
+        return System.nanoTime() / 1000L;
     }
 }

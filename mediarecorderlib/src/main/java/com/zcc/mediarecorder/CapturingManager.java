@@ -13,12 +13,10 @@ public class CapturingManager {
 
     private static final String TAG = "CapturingManager";
     private ProduceFrameThread mProduceFrameThread;
-
     private String mVideoPath;
     private int mVideoWidth = 0;
     private int mVideoHeight = 0;
     private boolean isStarted = false;
-//    private IVideoEncoderCore mVideoEncoderCore;
 
     public CapturingManager() {
     }
@@ -44,11 +42,6 @@ public class CapturingManager {
         mProduceFrameThread = new ProduceFrameThread(width, height, path, eglContext, textureType, encoderType);
         mProduceFrameThread.start();
     }
-
-    public void checkSize(int w, int h) {
-        if ((w & 1) != 0 || (h & 1) != 0) throw new IllegalStateException("invalid size");
-    }
-
 
     public void startCapturing() {
         ALog.d(TAG, "--- startCapturing\tpath" + mVideoPath);

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.zcc.mediarecorder.encoder;
+package com.zcc.mediarecorder.encoder.video;
 
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
@@ -23,10 +23,11 @@ import android.util.Log;
 import android.view.Surface;
 
 import com.zcc.mediarecorder.ALog;
-import com.zcc.mediarecorder.AudioRecorderThread2;
 import com.zcc.mediarecorder.EventManager;
-import com.zcc.mediarecorder.MuxerHolder;
+import com.zcc.mediarecorder.encoder.MuxerHolder;
 import com.zcc.mediarecorder.common.ErrorCode;
+import com.zcc.mediarecorder.encoder.audio.AudioRecorderThread2;
+import com.zcc.mediarecorder.encoder.VideoUtils;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -47,7 +48,7 @@ public class MediaCodecEncoderCore implements IVideoEncoderCore {
 
     private static final String MIME_TYPE = "video/avc";    // H.264 Advanced Video Coding
     private static final int FRAME_RATE = 30;               // 30fps
-    private static final int IFRAME_INTERVAL = 5;           // 5 seconds between I-frames
+    private static final int FRAME_INTERVAL = 5;           // 5 seconds between I-frames
     private Surface mInputSurface;
     private MuxerHolder mMuxerHolder;
     private AudioRecorderThread2 mAudioRecorderThread2;
@@ -67,17 +68,16 @@ public class MediaCodecEncoderCore implements IVideoEncoderCore {
         } catch (IOException e) {
             e.printStackTrace();
             ALog.e(TAG, "create muxer error");
-            EventManager.get().sendMsg(ErrorCode.ERORR_MEDIA_COMMON, "create muxer error");
+            EventManager.get().sendMsg(ErrorCode.ERROR_MEDIA_COMMON, "create muxer error");
         }
         MediaFormat format = MediaFormat.createVideoFormat(MIME_TYPE, width, height);
-
         // Set some properties.  Failing to specify some of these can cause the MediaCodec
         // configure() call to throw an unhelpful exception.
         format.setInteger(MediaFormat.KEY_COLOR_FORMAT,
                 MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface);
         format.setInteger(MediaFormat.KEY_BIT_RATE, VideoUtils.getBitRate(width, height));
         format.setInteger(MediaFormat.KEY_FRAME_RATE, FRAME_RATE);
-        format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, IFRAME_INTERVAL);
+        format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, FRAME_INTERVAL);
         if (VERBOSE) Log.d(TAG, "format: " + format);
 
         // Create a MediaCodec encoder, and configure it with our format.  Get a Surface
@@ -100,8 +100,7 @@ public class MediaCodecEncoderCore implements IVideoEncoderCore {
         mTrackIndex = -1;
 
         // Create a AudioRecordThread;
-        mAudioRecorderThread2 = new AudioRecorderThread2(mMuxerHolder, VideoUtils.getBitRate(width,
-                height));
+        mAudioRecorderThread2 = new AudioRecorderThread2(mMuxerHolder);
     }
 
     /**
@@ -207,7 +206,7 @@ public class MediaCodecEncoderCore implements IVideoEncoderCore {
 //                        mBufferInfo.presentationTimeUs = lastPresentationTime += 23219;
 //                    }
 //                    lastPresentationTime = mBufferInfo.presentationTimeUs;
-//                    mBufferInfo.presentationTimeUs = mMuxerHolder.getPTSUs();
+                    mBufferInfo.presentationTimeUs = mMuxerHolder.getPTSUs();
                     mMuxerHolder.getMuxer().writeSampleData(mTrackIndex, encodedData, mBufferInfo);
                     Log.d("presentTime", " video sent " + mBufferInfo.size + " bytes to muxer, ts=" +
                             mBufferInfo.presentationTimeUs);

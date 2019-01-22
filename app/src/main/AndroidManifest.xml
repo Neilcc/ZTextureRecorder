@@ -7,6 +7,7 @@
     <uses-feature
         android:glEsVersion="0x00020000"
         android:required="true" />
+
     <uses-permission android:name="android.permission.CAMERA" />
 
     <application
@@ -19,7 +20,7 @@
         <activity android:name="com.zcc.mediarecorder.demo.Camera1Activity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
+                <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>

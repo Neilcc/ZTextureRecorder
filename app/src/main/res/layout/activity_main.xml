@@ -9,24 +9,52 @@
         android:id="@+id/sv_camera"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_above="@+id/btn_record"
+        android:layout_above="@id/rl_control_zone"
         android:background="@color/colorPrimary" />
 
-    <Button
-        android:id="@+id/btn_record"
-        android:layout_width="130dp"
-        android:layout_height="50dp"
-        android:layout_alignParentBottom="true"
-        android:layout_margin="10dp"
-        android:text="@string/start_recording" />
+    <RelativeLayout
+        android:id="@+id/rl_control_zone"
+        android:layout_width="match_parent"
+        android:layout_height="300dp"
+        android:layout_alignParentBottom="true">
 
-    <Button
-        android:id="@+id/btn_change_codec"
-        android:layout_width="130dp"
-        android:layout_height="50dp"
-        android:layout_alignParentBottom="true"
-        android:layout_alignParentRight="true"
-        android:layout_margin="10dp"
-        android:text="mediacodec" />
+        <Button
+            android:id="@+id/btn_record"
+            android:layout_width="130dp"
+            android:layout_height="50dp"
+            android:layout_margin="10dp"
+            android:text="@string/start_recording" />
+
+        <Button
+            android:id="@+id/btn_change_codec"
+            android:layout_width="130dp"
+            android:layout_height="50dp"
+            android:layout_alignParentRight="true"
+            android:layout_margin="10dp"
+            android:text="mediacodec" />
+
+        <TextView
+            android:id="@+id/tv_path"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_below="@+id/btn_record"
+            android:text="FILEPATH"
+            android:textColor="@color/colorPrimaryDark" />
+
+        <TextView
+            android:id="@+id/tv_video_path"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/btn_record"
+            android:layout_toRightOf="@id/tv_path" />
+
+        <Button
+            android:id="@+id/btn_to_decode"
+            android:layout_width="130dp"
+            android:layout_height="50dp"
+            android:layout_below="@+id/tv_video_path"
+            android:layout_margin="10dp"
+            android:text="@string/todecoder" />
+    </RelativeLayout>
 
 </RelativeLayout>

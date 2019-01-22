@@ -13,20 +13,13 @@ import java.util.List;
 public class Camera1Manager implements Camera.PreviewCallback {
     private static final String TAG = "Camera1Manager";
     private static final double ASPECT_TOLERANCE = 0.1;
-    private static final int TEXTURE_NAME = 10;
-    private static final int PORTRAIT_PREVIEW_ORIENTATION = 180;
-    private static final String RESULT_FACE_NUM = "faceNum";
-    private static final String RESULT_FACES = "faces";
-    private static final String RESULT_LIP = "lip";
-    private static final String DETECTED_STATUS = "status";
-    private static final int FRAME_INTERVAL = 60;
     private Camera mCamera;
     private byte[] previewBuffer = null;
     private Camera.Size mPreviewSize;
     private Camera.PreviewCallback mOuterPreviewCallback;
     private float mFov;
 
-    public static int getCorrectCameraOrientation(Activity currentActivity, Camera.CameraInfo info) {
+    private static int getCorrectCameraOrientation(Activity currentActivity, Camera.CameraInfo info) {
         int rotation = currentActivity.getWindowManager().getDefaultDisplay().getRotation();
         int degrees = 90;
         switch (rotation) {
@@ -56,29 +49,6 @@ public class Camera1Manager implements Camera.PreviewCallback {
 
     public Camera.Size getPreviewSize() {
         return mPreviewSize;
-    }
-
-    public static byte[] rotateYUV420Degree90(byte[] data, int imageWidth, int imageHeight) {
-        byte[] yuv = new byte[imageWidth * imageHeight * 3 / 2];
-        // Rotate the Y luma
-        int i = 0;
-        for (int x = 0; x < imageWidth; x++) {
-            for (int y = imageHeight - 1; y >= 0; y--) {
-                yuv[i] = data[y * imageWidth + x];
-                i++;
-            }
-        }
-        // Rotate the U and V color components
-        i = imageWidth * imageHeight * 3 / 2 - 1;
-        for (int x = imageWidth - 1; x > 0; x = x - 2) {
-            for (int y = 0; y < imageHeight / 2; y++) {
-                yuv[i] = data[(imageWidth * imageHeight) + (y * imageWidth) + x];
-                i--;
-                yuv[i] = data[(imageWidth * imageHeight) + (y * imageWidth) + (x - 1)];
-                i--;
-            }
-        }
-        return yuv;
     }
 
     public void initCamera(Activity currentActivity, int targetPreviewWidth,
@@ -179,7 +149,7 @@ public class Camera1Manager implements Camera.PreviewCallback {
         }
     }
 
-    void release() {
+    public void release() {
         if (mCamera != null) {
             mCamera.stopPreview();
             mCamera.setPreviewCallbackWithBuffer(null);

@@ -8,7 +8,6 @@ import android.opengl.GLSurfaceView;
 import android.os.Handler;
 import android.os.Looper;
 
-import com.zcc.mediarecorder.gles.EglCore;
 import com.zcc.mediarecorder.gles.FullFrameRect;
 import com.zcc.mediarecorder.gles.Texture2dProgram;
 import com.zcc.mediarecorder.demo.utils.Camera1Manager;
@@ -21,7 +20,7 @@ import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
 
 
-public class Camera1GLHelper implements GLSurfaceView.Renderer, Camera.PreviewCallback {
+public class Camera1GLSurfaceRender implements GLSurfaceView.Renderer, Camera.PreviewCallback {
 
     private final Object MUTEX = new Object();
     private Camera1Manager mCamera1Manager;
@@ -30,21 +29,20 @@ public class Camera1GLHelper implements GLSurfaceView.Renderer, Camera.PreviewCa
     private int mCameraTextureId = 0;
     private FullFrameRect mScreenDisplay;
     private SurfaceTexture mCameraSurfaceTexture;
-    private EglCore mCameraEglCore;
     private Handler mMainHandler;
     private Activity mActivity;
     private GLSurfaceView mGLSurface;
     private boolean tobeInit = true;
-    private boolean permissionGranted = false;
     private boolean isInited = false;
     private OnTextureRendListener onTextureRendListener;
     private BlockingQueue<Runnable> blockingQueue = new LinkedBlockingQueue<>();
 
-    public Camera1GLHelper(Activity activity, GLSurfaceView mGLSurface) {
+    public Camera1GLSurfaceRender(Activity activity, GLSurfaceView mGLSurface) {
         this.mCamera1Manager = new Camera1Manager();
         this.mMainHandler = new Handler(Looper.getMainLooper());
         this.mActivity = activity;
         this.mGLSurface = mGLSurface;
+
     }
 
     public void setOnTextureRendListener(OnTextureRendListener onTextureRendListener) {
@@ -81,7 +79,6 @@ public class Camera1GLHelper implements GLSurfaceView.Renderer, Camera.PreviewCa
         mScreenDisplay = new FullFrameRect(new Texture2dProgram(Texture2dProgram.ProgramType.TEXTURE_EXT));
         mCameraTextureId = mScreenDisplay.createTextureObject();
         mCameraSurfaceTexture = new SurfaceTexture(mCameraTextureId);
-//        mCameraEglCore = new EglCore(EGL14.eglGetCurrentContext(), EglCore.FLAG_RECORDABLE);
         GLES20.glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
     }
 
@@ -96,7 +93,7 @@ public class Camera1GLHelper implements GLSurfaceView.Renderer, Camera.PreviewCa
                     @Override
                     public void run() {
                         mCamera1Manager.initCamera(mActivity, surfaceW, surfaceH, mCameraSurfaceTexture,
-                                Camera1GLHelper.this);
+                                Camera1GLSurfaceRender.this);
                         tobeInit = false;
                     }
                 });
@@ -108,6 +105,8 @@ public class Camera1GLHelper implements GLSurfaceView.Renderer, Camera.PreviewCa
     public void onDrawFrame(GL10 gl) {
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
         GLES20.glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
+        // todo
+        GLES20.glViewport(0, 0, 1, 1);
         try {
             if (blockingQueue.size() > 0) {
                 Runnable pendingRunnable = blockingQueue.poll(100, TimeUnit.MICROSECONDS);
@@ -134,7 +133,7 @@ public class Camera1GLHelper implements GLSurfaceView.Renderer, Camera.PreviewCa
         synchronized (MUTEX) {
             if (surfaceW != 0 && surfaceH != 0)
                 mCamera1Manager.initCamera(mActivity, surfaceW, surfaceH, mCameraSurfaceTexture,
-                        Camera1GLHelper.this);
+                        Camera1GLSurfaceRender.this);
             else
                 tobeInit = true;
         }

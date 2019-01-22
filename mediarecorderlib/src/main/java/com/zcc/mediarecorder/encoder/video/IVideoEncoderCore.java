@@ -1,4 +1,4 @@
-package com.zcc.mediarecorder.encoder;
+package com.zcc.mediarecorder.encoder.video;
 
 import android.view.Surface;
 

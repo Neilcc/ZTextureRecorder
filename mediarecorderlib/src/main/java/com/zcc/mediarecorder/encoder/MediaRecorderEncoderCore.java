@@ -6,6 +6,7 @@ import android.view.Surface;
 
 import com.zcc.mediarecorder.EventManager;
 import com.zcc.mediarecorder.common.ErrorCode;
+import com.zcc.mediarecorder.encoder.video.IVideoEncoderCore;
 
 import java.io.IOException;
 
@@ -17,7 +18,7 @@ public class MediaRecorderEncoderCore implements IVideoEncoderCore {
     private int w, h;
     private String output;
 
-    public MediaRecorderEncoderCore(int w, int h, String output) {
+    MediaRecorderEncoderCore(int w, int h, String output) {
         this.w = w;
         this.h = h;
         this.output = output;
@@ -37,7 +38,7 @@ public class MediaRecorderEncoderCore implements IVideoEncoderCore {
         mMediaRecorder.setOnErrorListener(new MediaRecorder.OnErrorListener() {
             @Override
             public void onError(MediaRecorder mr, int what, int extra) {
-                EventManager.get().sendMsg(ErrorCode.ERORR_MEDIA_COMMON,
+                EventManager.get().sendMsg(ErrorCode.ERROR_MEDIA_COMMON,
                         "mediarecorder erorr: what:" + what + "extra: " + extra + "msg");
                 mr.release();
             }
@@ -55,7 +56,7 @@ public class MediaRecorderEncoderCore implements IVideoEncoderCore {
             mMediaRecorder.prepare();
         } catch (IOException e) {
             e.printStackTrace();
-            EventManager.get().sendMsg(ErrorCode.ERORR_MEDIA_COMMON,
+            EventManager.get().sendMsg(ErrorCode.ERROR_MEDIA_COMMON,
                     "media Recorder prepare error: " + e.getMessage());
         }
     }

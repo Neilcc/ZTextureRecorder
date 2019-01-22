@@ -1,1 +1,1 @@
-include ':app', ':mediarecorderlib'
+include ':app', ':mediarecorderlib', ':mediadecorderlib'

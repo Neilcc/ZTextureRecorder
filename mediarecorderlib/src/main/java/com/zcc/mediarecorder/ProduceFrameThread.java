@@ -9,7 +9,7 @@ import android.os.Looper;
 import android.os.Message;
 import android.view.Surface;
 
-import com.zcc.mediarecorder.encoder.MediaCodecEncoderCore;
+import com.zcc.mediarecorder.encoder.video.MediaCodecEncoderCore;
 import com.zcc.mediarecorder.encoder.TextureMovieEncoder2;
 import com.zcc.mediarecorder.gles.EglCore;
 import com.zcc.mediarecorder.gles.FlatShadedProgram;
@@ -17,8 +17,6 @@ import com.zcc.mediarecorder.gles.FullFrameRect;
 import com.zcc.mediarecorder.gles.GlUtil;
 import com.zcc.mediarecorder.gles.Texture2dProgram;
 import com.zcc.mediarecorder.gles.WindowSurface;
-
-import androidx.annotation.RequiresApi;
 
 class ProduceFrameThread extends Thread {
 
@@ -206,9 +204,7 @@ class ProduceFrameThread extends Thread {
         GLES20.glViewport(0, 0, w, h);
         mFullScreen.drawFrame(textureID, mIdentityMatrix);
         GlUtil.checkGlError("draw done");
-        // todo change to configed nanotime
-        mInputWindowSurface.setPresentationTime(mVideoEncoder.getPTSUs() * 1000L);
-//        mInputWindowSurface.setPresentationTime(System.nanoTime());
+//        mInputWindowSurface.setPresentationTime(mVideoEncoder.getPTSUs() * 1000L);
         mInputWindowSurface.swapBuffers();
     }
 
@@ -240,15 +236,13 @@ class ProduceFrameThread extends Thread {
             mProduceFrameThread = (ProduceFrameThread) getLooper().getThread();
         }
 
-        public void pushFrame(int textureId) {
+        void pushFrame(int textureId) {
             Message.obtain(this, NEW_FRAME, textureId, 0).sendToTarget();
         }
 
-
-        public void queryStop() {
+        void queryStop() {
             mProduceFrameThread.stopEncoder();
             Message.obtain(this, STOP).sendToTarget();
-//            mProduceFrameThread.queryStop();
         }
 
         @Override

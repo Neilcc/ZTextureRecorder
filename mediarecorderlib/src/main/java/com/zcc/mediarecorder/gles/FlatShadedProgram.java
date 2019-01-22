@@ -47,7 +47,6 @@ public class FlatShadedProgram {
     private int muMVPMatrixLoc = -1;
     private int maPositionLoc = -1;
 
-
     /**
      * Prepares the program in the current EGL context.
      */
@@ -57,9 +56,7 @@ public class FlatShadedProgram {
             throw new RuntimeException("Unable to create program");
         }
         Log.d(TAG, "Created program " + mProgramHandle);
-
         // get locations of attributes and uniforms
-
         maPositionLoc = GLES20.glGetAttribLocation(mProgramHandle, "aPosition");
         GlUtil.checkLocation(maPositionLoc, "aPosition");
         muMVPMatrixLoc = GLES20.glGetUniformLocation(mProgramHandle, "uMVPMatrix");

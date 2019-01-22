@@ -24,6 +24,8 @@ import android.util.Log;
 import android.view.Surface;
 
 import com.zcc.mediarecorder.ALog;
+import com.zcc.mediarecorder.encoder.video.IVideoEncoderCore;
+import com.zcc.mediarecorder.encoder.video.MediaCodecEncoderCore;
 
 import java.io.IOException;
 import java.lang.ref.WeakReference;
@@ -47,7 +49,6 @@ import static com.zcc.mediarecorder.encoder.TextureMovieEncoder2.Encoder.MEDIA_C
  * but it doesn't matter -- either it runs early and prevents blockage, or it runs late
  * and un-blocks the encoder.
  * <p>
- * TODO: reconcile this with TextureMovieEncoder.
  */
 public class TextureMovieEncoder2 implements Runnable {
     private static final String TAG = "TextureMovieEncoder2";

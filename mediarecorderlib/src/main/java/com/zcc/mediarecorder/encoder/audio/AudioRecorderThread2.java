@@ -1,27 +1,28 @@
-package com.zcc.mediarecorder;
+package com.zcc.mediarecorder.encoder.audio;
 
 import android.media.AudioFormat;
+import android.media.AudioRecord;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecList;
 import android.media.MediaFormat;
-import android.media.MediaRecorder;
+import android.util.Log;
+
+import com.zcc.mediarecorder.ALog;
+import com.zcc.mediarecorder.encoder.EncoderConfigs;
+import com.zcc.mediarecorder.encoder.MuxerHolder;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
+import static android.os.Process.setThreadPriority;
+
 public class AudioRecorderThread2 extends Thread {
     public static final String TAG = "AudioRecorderThread2";
     private static final String MIME_TYPE = "audio/mp4a-latm";
-    private static final int SAMPLES_PER_FRAME = 1024;    // AAC, frameBytes/frame/channel
-    private static final int FRAMES_PER_BUFFER = 25;    // AAC, frame/buffer/sec
-    private static final int TIMEOUT_USEC = 10000;    // 10[microsec]
-    private static final int SAMPLE_RATE = 44100;    // 44.1[KHz] is only setting guaranteed to be available on all devices.
-    private static final int BIT_RATE = 64000;
-    /*音轨数据源 mic就行吧?*/
-    private static final int[] AUDIO_SOURCES = new int[]{
-            MediaRecorder.AudioSource.MIC,
-    };
+    private static final int TIMEOUT_SEC = 10000;    // 10[microsec]
+
+    private int mAudioBufSize = -1;
 
     private final Object MUTEX = new Object();
     private volatile boolean isStart = false;
@@ -30,24 +31,19 @@ public class AudioRecorderThread2 extends Thread {
     private MediaCodec mEncoder;                // API >= 16(Android4.1.2)
     private MediaFormat audioFormat;
     private MediaCodec.BufferInfo mBufferInfo;        // API >= 16(Android4.1.2)
-    private android.media.AudioRecord audioRecord;
+    private AudioRecord mAudioRecord;
 
     private MuxerHolder mMuxerHolder;
     private int mTrackIndex;
-    private int mBitRate;
-    private long lastPresentTimeUs;
 
-
-    public AudioRecorderThread2(MuxerHolder mMuxerHolder, int mBitRate) {
+    public AudioRecorderThread2(MuxerHolder mMuxerHolder) {
         mBufferInfo = new MediaCodec.BufferInfo();
-        this.mBitRate = mBitRate;
         this.mMuxerHolder = mMuxerHolder;
         prepare();
     }
 
-    private static final MediaCodecInfo selectAudioCodec(final String mimeType) {
-        ALog.v(TAG, "selectAudioCodec:");
-
+    public static MediaCodecInfo selectAudioCodec(final String mimeType) {
+        ALog.v(TAG, "selectAudioCodec:\t" + mimeType);
         MediaCodecInfo result = null;
         // get the list of available codecs
         final int numCodecs = MediaCodecList.getCodecCount();
@@ -58,9 +54,9 @@ public class AudioRecorderThread2 extends Thread {
                 continue;
             }
             final String[] types = codecInfo.getSupportedTypes();
-            for (int j = 0; j < types.length; j++) {
-                ALog.d(TAG, "supportedType:" + codecInfo.getName() + ",MIME=" + types[j]);
-                if (types[j].equalsIgnoreCase(mimeType)) {
+            for (String type : types) {
+                ALog.d(TAG, "supportedType:" + codecInfo.getName() + ",MIME=" + type);
+                if (type.equalsIgnoreCase(mimeType)) {
                     result = codecInfo;
                     break LOOP;
                 }
@@ -76,12 +72,14 @@ public class AudioRecorderThread2 extends Thread {
             return;
         }
         ALog.i(TAG, "selected codec: " + audioCodecInfo.getName());
-        audioFormat = MediaFormat.createAudioFormat(MIME_TYPE, SAMPLE_RATE, 1);
+        audioFormat = MediaFormat.createAudioFormat(MIME_TYPE, EncoderConfigs.AUDIO_SAMPLE_RATE, 1);
+        // AAC LC
         audioFormat.setInteger(MediaFormat.KEY_AAC_PROFILE, MediaCodecInfo.CodecProfileLevel.AACObjectLC);
+        // 单声道
         audioFormat.setInteger(MediaFormat.KEY_CHANNEL_MASK, AudioFormat.CHANNEL_IN_MONO);
-        audioFormat.setInteger(MediaFormat.KEY_BIT_RATE, mBitRate);
+        audioFormat.setInteger(MediaFormat.KEY_BIT_RATE, EncoderConfigs.AUDIO_BIT_RATE);
         audioFormat.setInteger(MediaFormat.KEY_CHANNEL_COUNT, 1);
-//        audioFormat.setInteger(MediaFormat.KEY_SAMPLE_RATE, SAMPLE_RATE);
+        audioFormat.setInteger(MediaFormat.KEY_SAMPLE_RATE, EncoderConfigs.AUDIO_SAMPLE_RATE);
         ALog.i(TAG, "format: " + audioFormat);
     }
 
@@ -91,7 +89,8 @@ public class AudioRecorderThread2 extends Thread {
             return;
         }
         mEncoder = MediaCodec.createEncoderByType(MIME_TYPE);
-        mEncoder.configure(audioFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
+        mEncoder.configure(audioFormat, null, null,
+                MediaCodec.CONFIGURE_FLAG_ENCODE);
         mEncoder.start();
         ALog.d(TAG, "prepare finishing");
         prepareAudioRecord();
@@ -99,13 +98,14 @@ public class AudioRecorderThread2 extends Thread {
     }
 
     private void stopMediaCodec() {
-        if (audioRecord != null) {
-            audioRecord.stop();
-            audioRecord.release();
-            audioRecord = null;
+        if (mAudioRecord != null) {
+            mAudioRecord.stop();
+            mAudioRecord.release();
+            mAudioRecord = null;
             try {
                 Thread.sleep(100);
             } catch (InterruptedException e) {
+                // unexpected
             }
         }
         if (mEncoder != null) {
@@ -114,7 +114,7 @@ public class AudioRecorderThread2 extends Thread {
             mEncoder = null;
         }
         isStart = false;
-        ALog.e("angcyo-->", "stop audio 录制...");
+        ALog.e(TAG, "stop audio 录制...");
     }
 
     public synchronized void restart() {
@@ -122,38 +122,35 @@ public class AudioRecorderThread2 extends Thread {
     }
 
     private void prepareAudioRecord() {
-        if (audioRecord != null) {
-            audioRecord.stop();
-            audioRecord.release();
-            audioRecord = null;
+        if (mAudioRecord != null) {
+            mAudioRecord.stop();
+            mAudioRecord.release();
+            mAudioRecord = null;
         }
-
         try {
-            final int min_buffer_size = android.media.AudioRecord.getMinBufferSize(
-                    SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO,
+            mAudioBufSize = android.media.AudioRecord.getMinBufferSize(
+                    EncoderConfigs.AUDIO_SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO,
                     AudioFormat.ENCODING_PCM_16BIT);
-            int buffer_size = SAMPLES_PER_FRAME * FRAMES_PER_BUFFER;
-            if (buffer_size < min_buffer_size)
-                buffer_size = ((min_buffer_size / SAMPLES_PER_FRAME) + 1) * SAMPLES_PER_FRAME * 2;
-
-            audioRecord = null;
-            for (final int source : AUDIO_SOURCES) {
-                try {
-                    audioRecord = new android.media.AudioRecord(source, SAMPLE_RATE,
-                            AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, buffer_size);
-                    if (audioRecord.getState() != android.media.AudioRecord.STATE_INITIALIZED)
-                        audioRecord = null;
-                } catch (Exception e) {
-                    audioRecord = null;
+            //??????
+            // int buffer_size = SAMPLES_PER_FRAME * FRAMES_PER_BUFFER;
+            // if (buffer_size < min_buffer_size)
+            // buffer_size = ((min_buffer_size / SAMPLES_PER_FRAME) + 1) * SAMPLES_PER_FRAME * 2;
+            mAudioRecord = null;
+            try {
+                mAudioRecord = new AudioRecord(EncoderConfigs.AUDIO_SOURCE,
+                        EncoderConfigs.AUDIO_SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO,
+                        AudioFormat.ENCODING_PCM_16BIT, mAudioBufSize);
+                if (mAudioRecord.getState() != AudioRecord.STATE_INITIALIZED) {
+                    mAudioRecord = null;
                 }
-                if (audioRecord != null) break;
+            } catch (Exception e) {
+                mAudioRecord = null;
             }
         } catch (final Exception e) {
-            android.util.Log.e(TAG, "AudioThread#run", e);
+            Log.e(TAG, "AudioThread#run", e);
         }
-
-        if (audioRecord != null) {
-            audioRecord.startRecording();
+        if (mAudioRecord != null) {
+            mAudioRecord.startRecording();
         }
     }
 
@@ -165,8 +162,8 @@ public class AudioRecorderThread2 extends Thread {
 
     @Override
     public void run() {
-        android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_URGENT_AUDIO);
-        final ByteBuffer buf = ByteBuffer.allocateDirect(SAMPLES_PER_FRAME);
+        setThreadPriority(android.os.Process.THREAD_PRIORITY_URGENT_AUDIO);
+        ByteBuffer buf = null;
         int readBytes;
         while (true) {
             /*启动或者重启*/
@@ -175,62 +172,54 @@ public class AudioRecorderThread2 extends Thread {
                 try {
                     ALog.e("angcyo-->", "audio -- startMediaCodec...");
                     startMediaCodec();
+                    buf = ByteBuffer.allocateDirect(mAudioBufSize);
                 } catch (IOException e) {
                     e.printStackTrace();
                     isStart = false;
                 }
-            } else if (audioRecord != null) {
+            } else if (mAudioRecord != null) {
+                if (buf == null) {
+                    continue;
+                }
                 buf.clear();
-                readBytes = audioRecord.read(buf, SAMPLES_PER_FRAME);
-                long presentTime = System.nanoTime();
-
+                readBytes = mAudioRecord.read(buf, mAudioBufSize);
                 if (readBytes > 0) {
-                    // set audio data to encoder
-//                    presentTime = presentTime -
-//                            (readBytes / SAMPLE_RATE ) / 1000000000;
-//                    long presentTimeUs = presentTime/1000L;
-//                    if(lastPresentTimeUs >= presentTimeUs){
-//                        lastPresentTimeUs +=23219;
-//                    }else {
-//                        lastPresentTimeUs = presentTimeUs;
-//                    }
                     buf.position(readBytes);
                     buf.flip();
                     ALog.e(TAG, "got none empty audio");
                     try {
                         boolean isEnd = encode(buf, readBytes, mMuxerHolder.getPTSUs());
                         if (isEnd) {
-                            audioRecord.stop();
-                            audioRecord.release();
+                            mAudioRecord.stop();
+                            mAudioRecord.release();
                             mMuxerHolder.onReleaseAudioMux();
                             break;
                         }
                     } catch (Exception e) {
                         ALog.e("angcyo-->", "解码音频(Audio)数据 失败");
                         e.printStackTrace();
-                        audioRecord.stop();
-                        audioRecord.release();
+                        mAudioRecord.stop();
+                        mAudioRecord.release();
                         mMuxerHolder.onReleaseAudioMux();
                         break;
                     }
                 }
             }
-            /**/
         }
     }
 
     private boolean encode(final ByteBuffer buffer, final int length, final long presentationTimeUs) {
-        boolean isEnd = false;
+        boolean isEnd;
         synchronized (MUTEX) {
             isEnd = isExit;
             if (isEnd) mEncoder.signalEndOfInputStream();
         }
         ALog.e(TAG, " encode start isend :" + isEnd);
         final ByteBuffer[] inputBuffers = mEncoder.getInputBuffers();
-        final int inputBufferIndex = mEncoder.dequeueInputBuffer(TIMEOUT_USEC);
+        final int inputBufferIndex = mEncoder.dequeueInputBuffer(TIMEOUT_SEC);
         /*向编码器输入数据*/
         if (inputBufferIndex >= 0) {
-            ALog.d(TAG, "got avaliable encode buffer encode audio");
+            ALog.d(TAG, "got available encode buffer encode audio");
             final ByteBuffer inputBuffer = inputBuffers[inputBufferIndex];
             inputBuffer.clear();
             if (buffer != null) {
@@ -238,8 +227,6 @@ public class AudioRecorderThread2 extends Thread {
             }
             ALog.d(TAG, "encode:queueInputBuffer");
             if (length <= 0) {
-                // send EOS
-//                    mIsEOS = true;
                 ALog.e(TAG, "send BUFFER_FLAG_END_OF_STREAM");
                 mEncoder.queueInputBuffer(inputBufferIndex, 0, 0,
                         presentationTimeUs, MediaCodec.BUFFER_FLAG_END_OF_STREAM);
@@ -250,20 +237,15 @@ public class AudioRecorderThread2 extends Thread {
             }
         } else if (inputBufferIndex == MediaCodec.INFO_TRY_AGAIN_LATER) {
             // wait for MediaCodec encoder is ready to encode
-            // nothing to do here because MediaCodec#dequeueInputBuffer(TIMEOUT_USEC)
-            // will wait for maximum TIMEOUT_USEC(10msec) on each call
+            // nothing to do here because MediaCodec#dequeueInputBuffer(TIMEOUT_SEC)
+            // will wait for maximum TIMEOUT_SEC(10msec) on each call
             ALog.d(TAG, "encode try again latter");
             return false;
         }
-        /*获取解码后的数据*/
-//        if (mMuxerHolder.getMuxer() == null) {
-//            if (DEBUG) ALog.w(TAG, "MediaMuxerRunnable is unexpectedly null");
-//            return;
-//        }
         ByteBuffer[] encoderOutputBuffers = mEncoder.getOutputBuffers();
         ALog.d(TAG, "Do media codec out put and mux");
         while (true) {
-            int encoderStatus = mEncoder.dequeueOutputBuffer(mBufferInfo, TIMEOUT_USEC);
+            int encoderStatus = mEncoder.dequeueOutputBuffer(mBufferInfo, TIMEOUT_SEC);
             if (encoderStatus == MediaCodec.INFO_TRY_AGAIN_LATER) {
                 ALog.d(TAG, " drain try again latter");
                 if (!isEnd) {
@@ -306,11 +288,6 @@ public class AudioRecorderThread2 extends Thread {
                 // return buffer to encoder
                 mEncoder.releaseOutputBuffer(encoderStatus, false);
                 if ((mBufferInfo.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0 || mBufferInfo.size == 0) {
-//                    if (!endOfStream) {
-//                        ALog.w(TAG, "reached end of stream unexpectedly");
-//                    } else {
-//                        if (VERBOSE) ALog.d(TAG, "end of stream reached");
-//                    }
                     break;      // out of while
                 }
             }
