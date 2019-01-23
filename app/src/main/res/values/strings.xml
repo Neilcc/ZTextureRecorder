@@ -5,4 +5,6 @@
     <string name="media_recorder">mediarecorder</string>
     <string name="media_codec">mediaCodec</string>
     <string name="todecoder">toDecoder</string>
+    <string name="mediacodec">mediacodec</string>
+    <string name="filepath">FILEPATH</string>
 </resources>

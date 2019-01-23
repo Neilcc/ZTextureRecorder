@@ -1,9 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    tools:context="com.zcc.mediarecorder.demo.Camera1Activity">
+    android:layout_height="match_parent">
 
     <android.opengl.GLSurfaceView
         android:id="@+id/sv_camera"
@@ -29,16 +27,16 @@
             android:id="@+id/btn_change_codec"
             android:layout_width="130dp"
             android:layout_height="50dp"
-            android:layout_alignParentRight="true"
+            android:layout_alignParentEnd="true"
             android:layout_margin="10dp"
-            android:text="mediacodec" />
+            android:text="@string/mediacodec" />
 
         <TextView
             android:id="@+id/tv_path"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_below="@+id/btn_record"
-            android:text="FILEPATH"
+            android:text="@string/filepath"
             android:textColor="@color/colorPrimaryDark" />
 
         <TextView
@@ -46,7 +44,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_below="@id/btn_record"
-            android:layout_toRightOf="@id/tv_path" />
+            android:layout_toEndOf="@id/tv_path" />
 
         <Button
             android:id="@+id/btn_to_decode"

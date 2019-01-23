@@ -9,8 +9,8 @@ import android.os.Looper;
 import android.os.Message;
 import android.view.Surface;
 
-import com.zcc.mediarecorder.encoder.video.MediaCodecEncoderCore;
 import com.zcc.mediarecorder.encoder.TextureMovieEncoder2;
+import com.zcc.mediarecorder.encoder.video.MediaCodecEncoderCore;
 import com.zcc.mediarecorder.gles.EglCore;
 import com.zcc.mediarecorder.gles.FlatShadedProgram;
 import com.zcc.mediarecorder.gles.FullFrameRect;
@@ -23,6 +23,7 @@ class ProduceFrameThread extends Thread {
     private static final String TAG = "ProduceFrameThread";
     // Used to wait for the thread to start.
     private final Object mStartLock = new Object();
+    private final Object WORK_MUTEX = new Object();
     private MediaCodecEncoderCore mEncoderCore;
     private WindowSurface mInputWindowSurface;
     private boolean mReady = false;
@@ -36,11 +37,9 @@ class ProduceFrameThread extends Thread {
     private FullFrameRect mFullScreen;
     private FlatShadedProgram mProgram;
     private float[] mIdentityMatrix = new float[16];
-
     private EGLContext mEGLContext;
     private Texture2dProgram.ProgramType textureType;
     private TextureMovieEncoder2.Encoder mVideoEncoderType;
-
     private int w, h;
     private String output;
 
@@ -108,7 +107,6 @@ class ProduceFrameThread extends Thread {
             mReady = true;
             mStartLock.notify();    // signal waitUntilReady()
         }
-
         Looper.loop();
         ALog.d(TAG, "looper quit");
         releaseGl();
@@ -136,6 +134,9 @@ class ProduceFrameThread extends Thread {
     public void startRecord() {
         waitUntilReady();
         mVideoEncoder.startRecording();
+        synchronized (WORK_MUTEX) {
+
+        }
     }
 
     /**
@@ -145,9 +146,7 @@ class ProduceFrameThread extends Thread {
      */
     private void releaseGl() {
         GlUtil.checkGlError("releaseGl start");
-
         int[] values = new int[1];
-
         if (mInputWindowSurface != null) {
             mInputWindowSurface.release();
             mInputWindowSurface = null;
@@ -172,55 +171,49 @@ class ProduceFrameThread extends Thread {
             mDepthBuffer = -1;
         }
         if (mFullScreen != null) {
-            mFullScreen.release(false); // TODO: should be "true"; must ensure mEglCore current
+            mFullScreen.release(false);
             mFullScreen = null;
         }
-
         GlUtil.checkGlError("releaseGl done");
-
         mEglCore.makeNothingCurrent();
     }
 
     private void queryStop() {
-        Looper.myLooper().quit();
-        stopEncoder();
+        synchronized (WORK_MUTEX) {
+            stopEncoder();
+        }
     }
 
     private void pushFrame(int textureID) {
-        ALog.d(TAG, "onframe texture " + textureID);
-        if (mVideoEncoder == null) return;
-        mVideoEncoder.frameAvailableSoon();
-        draw(textureID);
+        synchronized (WORK_MUTEX) {
+            ALog.d(TAG, "onframe texture " + textureID);
+            if (mVideoEncoder == null) return;
+            mVideoEncoder.frameAvailableSoon();
+            draw(textureID);
+        }
     }
 
-
-    /**
-     * Draws the scene.
-     */
     private void draw(int textureID) {
+        if (mInputWindowSurface == null) {
+            return;
+        }
         mInputWindowSurface.makeCurrent();
         GlUtil.checkGlError("draw start");
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);     //  clear pixels outside rect
         GLES20.glViewport(0, 0, w, h);
         mFullScreen.drawFrame(textureID, mIdentityMatrix);
         GlUtil.checkGlError("draw done");
-//        mInputWindowSurface.setPresentationTime(mVideoEncoder.getPTSUs() * 1000L);
         mInputWindowSurface.swapBuffers();
     }
 
-    /**
-     * Prepares window surface and GL state.
-     */
     private void prepareGl(Surface surface) {
         ALog.d(TAG, "prepareGl");
         mInputWindowSurface = new WindowSurface(mEglCore, surface, false);
         mInputWindowSurface.makeCurrent();
         mFullScreen = new FullFrameRect(new Texture2dProgram(textureType));
         mProgram = new FlatShadedProgram();
-        // Set the background color.
         GLES20.glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     }
-
 
     public static class ProduceThreadHandler extends Handler {
 
@@ -230,6 +223,8 @@ class ProduceFrameThread extends Thread {
         private static final int NEW_FRAME = 3;
 
         private ProduceFrameThread mProduceFrameThread;
+        private boolean isStarted = false;
+        private final Object MUTEX = new Object();
 
         ProduceThreadHandler(Looper looper) {
             super(looper);
@@ -245,8 +240,19 @@ class ProduceFrameThread extends Thread {
             Message.obtain(this, STOP).sendToTarget();
         }
 
+        public void setStarted(boolean started) {
+            synchronized (MUTEX) {
+                isStarted = started;
+            }
+        }
+
         @Override
         public void handleMessage(Message msg) {
+            synchronized (MUTEX){
+                if(!isStarted){
+                    return;
+                }
+            }
             switch (msg.what) {
                 case INIT:
                     break;

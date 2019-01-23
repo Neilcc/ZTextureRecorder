@@ -8,9 +8,9 @@ import android.opengl.GLSurfaceView;
 import android.os.Handler;
 import android.os.Looper;
 
+import com.zcc.mediarecorder.demo.utils.Camera1Manager;
 import com.zcc.mediarecorder.gles.FullFrameRect;
 import com.zcc.mediarecorder.gles.Texture2dProgram;
-import com.zcc.mediarecorder.demo.utils.Camera1Manager;
 
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -84,7 +84,6 @@ public class Camera1GLSurfaceRender implements GLSurfaceView.Renderer, Camera.Pr
 
     @Override
     public void onSurfaceChanged(GL10 gl, int width, int height) {
-        GLES20.glViewport(0, 0, width, height);
         synchronized (MUTEX) {
             this.surfaceH = height;
             this.surfaceW = width;
@@ -101,12 +100,31 @@ public class Camera1GLSurfaceRender implements GLSurfaceView.Renderer, Camera.Pr
         }
     }
 
+    private void calcAndSetViewport() {
+        if (mCamera1Manager.getPreviewSize() == null) {
+            GLES20.glViewport(0, 0, surfaceW, surfaceH);
+        } else {
+            float ratioSurface = surfaceW * 1.0f / surfaceH;
+            float ratioCam = mCamera1Manager.getPreviewSize().width * 1.0f / mCamera1Manager.getPreviewSize().height;
+            if (ratioSurface >= ratioCam) {
+                float trimHR = surfaceH * 1.0f / mCamera1Manager.getPreviewSize().height;
+                int trimW = (int) (mCamera1Manager.getPreviewSize().height * trimHR);
+                int delta = (surfaceW - trimW) / 2;
+                GLES20.glViewport(delta, 0, trimW, surfaceH);
+            } else {
+                float trimWR = surfaceW * 1.0f / mCamera1Manager.getPreviewSize().height;
+                int trimH = (int) (mCamera1Manager.getPreviewSize().height * trimWR);
+                int delta = (surfaceH - mCamera1Manager.getPreviewSize().height) / 2;
+                GLES20.glViewport(0, delta, surfaceW, trimH);
+            }
+        }
+    }
+
     @Override
     public void onDrawFrame(GL10 gl) {
+        calcAndSetViewport();
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
-        GLES20.glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
-        // todo
-        GLES20.glViewport(0, 0, 1, 1);
+        GLES20.glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         try {
             if (blockingQueue.size() > 0) {
                 Runnable pendingRunnable = blockingQueue.poll(100, TimeUnit.MICROSECONDS);

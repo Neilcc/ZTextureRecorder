@@ -43,13 +43,7 @@ public class CapturingManager {
         mProduceFrameThread.start();
     }
 
-    public void startCapturing() {
-        ALog.d(TAG, "--- startCapturing\tpath" + mVideoPath);
-        mProduceFrameThread.startRecord();
-        isStarted = true;
-    }
-
-    public boolean isStarted() {
+    public synchronized boolean isStarted() {
         return isStarted;
     }
 
@@ -57,10 +51,17 @@ public class CapturingManager {
         mProduceFrameThread.getHandler().pushFrame(textureId);
     }
 
-    public void stopCapturing() {
+    public synchronized void startCapturing() {
+        ALog.d(TAG, "--- startCapturing\tpath" + mVideoPath);
+        mProduceFrameThread.startRecord();
+        isStarted = true;
+    }
+
+    public synchronized void stopCapturing() {
+        isStarted = false;
         ALog.d(TAG, "--- stopCapturing");
         mProduceFrameThread.getHandler().queryStop();
-        isStarted = false;
+
 
     }
 

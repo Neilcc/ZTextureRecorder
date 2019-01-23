@@ -12,12 +12,11 @@ import java.util.List;
 
 public class Camera1Manager implements Camera.PreviewCallback {
     private static final String TAG = "Camera1Manager";
-    private static final double ASPECT_TOLERANCE = 0.1;
+    private static final double MIN_RATIO_DIFF = 0.2;
     private Camera mCamera;
     private byte[] previewBuffer = null;
     private Camera.Size mPreviewSize;
     private Camera.PreviewCallback mOuterPreviewCallback;
-    private float mFov;
 
     private static int getCorrectCameraOrientation(Activity currentActivity, Camera.CameraInfo info) {
         int rotation = currentActivity.getWindowManager().getDefaultDisplay().getRotation();
@@ -70,7 +69,6 @@ public class Camera1Manager implements Camera.PreviewCallback {
                 setCamera(targetPreviewWidth, targetPreviewHeight);
                 mCamera.setPreviewTexture(cameraSurfaceTexture);
                 mCamera.setPreviewCallbackWithBuffer(this);
-                mFov = mCamera.getParameters().getHorizontalViewAngle();
                 mCamera.startPreview();
             } catch (RuntimeException | IOException ex) {
                 ex.printStackTrace();
@@ -82,7 +80,6 @@ public class Camera1Manager implements Camera.PreviewCallback {
         if (mCamera != null) {
             List<Camera.Size> mSupportedPreviewSizes = mCamera.getParameters().getSupportedPreviewSizes();
             mPreviewSize = getOptimalPreviewSize(mSupportedPreviewSizes, width, height);
-
             // get Camera parameters
             Camera.Parameters params = mCamera.getParameters();
             params.setPreviewSize(mPreviewSize.width, mPreviewSize.height);
@@ -97,38 +94,24 @@ public class Camera1Manager implements Camera.PreviewCallback {
         }
     }
 
-    /**
-     * 获取最佳预览尺寸
-     *
-     * @param sizes 相机提供支持的系列预览尺寸
-     * @param w     外部传入限定宽度
-     * @param h     外部传入限定高度
-     * @return 最佳预览尺寸
-     */
     private Camera.Size getOptimalPreviewSize(List<Camera.Size> sizes, int w, int h) {
-        double targetRatio = (double) w / h;
+        double targetRatio = w * 1.0 / h;
         if (sizes == null) {
             return null;
         }
-
         Camera.Size optimalSize = null;
-        double minDiff = Double.MAX_VALUE;
-
-        // Try to find an size match aspect ratio and size
+        double minRatioDiff = MIN_RATIO_DIFF;
         for (Camera.Size size : sizes) {
-            double ratio = (double) size.width / size.height;
-            if (Math.abs(ratio - targetRatio) > ASPECT_TOLERANCE) {
-                continue;
-            }
-            if (Math.abs(size.height - h) < minDiff) {
+            double ratio = size.width * 1.0 / size.height;
+            if (Math.abs(targetRatio - ratio) < minRatioDiff) {
                 optimalSize = size;
-                minDiff = Math.abs(size.height - h);
+                minRatioDiff = Math.abs(targetRatio - ratio);
             }
         }
 
-        // Cannot find the one match the aspect ratio, ignore the requirement
+        double minDiff = Double.MAX_VALUE;
         if (optimalSize == null) {
-            minDiff = Double.MAX_VALUE;
+            // we find closed height
             for (Camera.Size size : sizes) {
                 if (Math.abs(size.height - h) < minDiff) {
                     optimalSize = size;
