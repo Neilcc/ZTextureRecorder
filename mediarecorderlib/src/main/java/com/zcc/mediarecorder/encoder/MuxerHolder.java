@@ -3,20 +3,19 @@ package com.zcc.mediarecorder.encoder;
 import android.media.MediaMuxer;
 
 import com.zcc.mediarecorder.ALog;
+import com.zcc.mediarecorder.common.ILifeCircle;
 
 import java.io.IOException;
 
-public class MuxerHolder {
+public class MuxerHolder implements ILifeCircle {
 
     private final Object mStartLock = new Object();
     private MediaMuxer mMuxer;
-    private volatile boolean isAudioConfiged = false;
-    private volatile boolean isFrameConfiged = false;
+    private volatile boolean isAudioConfig = false;
+    private volatile boolean isFrameConfig = false;
     private volatile boolean isStarted = false;
     private boolean isVideoFinished = false;
     private boolean isAudioFinished = false;
-    private long firstTimeStampBase = 0;
-    private long prevOutputPTSUs = 0;
     private long firstNanoTime = 0;
 
     public MuxerHolder(String outputFile) throws IOException {
@@ -26,17 +25,16 @@ public class MuxerHolder {
 
     public void onFrame() {
         if (firstNanoTime == 0) {
-            firstTimeStampBase = System.nanoTime();
             firstNanoTime = System.nanoTime();
         }
     }
 
 
-    public synchronized void setAudioConfiged(boolean audioConfiged) {
-        isAudioConfiged = audioConfiged;
-        if (isAudioConfiged && isFrameConfiged) {
+    public synchronized void setAudioConfig(boolean audioConfig) {
+        isAudioConfig = audioConfig;
+        if (isAudioConfig && isFrameConfig) {
             ALog.d("muxholder", "muxer holder start");
-            mMuxer.start();
+            start();
             synchronized (mStartLock) {
                 isStarted = true;
                 mStartLock.notify();
@@ -44,11 +42,11 @@ public class MuxerHolder {
         }
     }
 
-    public synchronized void setFrameConfiged(boolean frameConfiged) {
-        isFrameConfiged = frameConfiged;
-        if (isAudioConfiged && isFrameConfiged) {
+    public synchronized void setFrameConfig(boolean frameConfig) {
+        isFrameConfig = frameConfig;
+        if (isAudioConfig && isFrameConfig) {
             ALog.d("muxholder", "muxer holder start");
-            mMuxer.start();
+            start();
             synchronized (mStartLock) {
                 isStarted = true;
                 mStartLock.notify();
@@ -84,46 +82,35 @@ public class MuxerHolder {
         }
     }
 
-    private void release() {
-        if (mMuxer == null) return;
-        isAudioConfiged = false;
-        isFrameConfiged = false;
+    @Override
+    public void start() {
+        mMuxer.start();
+    }
+
+    @Override
+    public void stop() {
+        if (mMuxer == null) {
+            return;
+        }
+        isAudioConfig = false;
+        isFrameConfig = false;
         isStarted = false;
         mMuxer.stop();
+    }
+
+    @Override
+    public void release() {
+        if (mMuxer == null) return;
         mMuxer.release();
         mMuxer = null;
     }
 
-    /**
-     * get next encoding presentationTimeUs
-     *
-     * @return
-     */
-    public synchronized long getPTSUs() {
-//        long result = 0, thisNanoTime = System.nanoTime();
-//
-//        if (firstTimeStampBase == 0) {
-//            result = thisNanoTime;
-//        } else {
-//            if (firstNanoTime == 0) firstNanoTime = thisNanoTime;
-//            long elapsedTime = thisNanoTime - firstNanoTime;
-//            result = firstTimeStampBase + elapsedTime;
-//        }
-//
-//        result = result / 1000L;
-//
-//        if (result < prevOutputPTSUs) {
-//            result = (prevOutputPTSUs - result) + result;
-//        }
-//
-//        if (result == prevOutputPTSUs) {
-//            // yep another magic number which I don't fucking know either.
-//            // AAC frame magic number;
-//            result += 43219;
-//        }
-//
-//        return prevOutputPTSUs = result;
+    @Override
+    public void prepare() {
 
+    }
+
+    public synchronized long getPTSUs() {
         return System.nanoTime() / 1000L;
     }
 }

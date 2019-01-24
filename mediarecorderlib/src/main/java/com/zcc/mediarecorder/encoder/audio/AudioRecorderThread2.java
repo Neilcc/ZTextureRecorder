@@ -4,104 +4,153 @@ import android.media.AudioFormat;
 import android.media.AudioRecord;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
-import android.media.MediaCodecList;
 import android.media.MediaFormat;
+import android.os.Handler;
+import android.os.HandlerThread;
+import android.os.Looper;
+import android.os.Message;
 import android.util.Log;
 
 import com.zcc.mediarecorder.ALog;
+import com.zcc.mediarecorder.common.ILifeCircle;
 import com.zcc.mediarecorder.encoder.EncoderConfigs;
 import com.zcc.mediarecorder.encoder.MuxerHolder;
+import com.zcc.mediarecorder.encoder.VideoUtils;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
-import static android.os.Process.setThreadPriority;
+import static android.os.Process.THREAD_PRIORITY_URGENT_AUDIO;
 
-public class AudioRecorderThread2 extends Thread {
+public class AudioRecorderThread2 implements ILifeCircle {
     public static final String TAG = "AudioRecorderThread2";
     private static final String MIME_TYPE = "audio/mp4a-latm";
-    private static final int TIMEOUT_SEC = 10000;    // 10[microsec]
-
-    private int mAudioBufSize = -1;
-
+    private static final int TIMEOUT_SEC = 10000;
     private final Object MUTEX = new Object();
-    private volatile boolean isStart = false;
+    private int mAudioBufSize = -1;
     private volatile boolean isExit = false;
 
-    private MediaCodec mEncoder;                // API >= 16(Android4.1.2)
-    private MediaFormat audioFormat;
-    private MediaCodec.BufferInfo mBufferInfo;        // API >= 16(Android4.1.2)
-    private AudioRecord mAudioRecord;
+    private MediaFormat mAudioFormat;
+    private MediaCodec.BufferInfo mBufferInfo;
 
+    private MediaCodec mEncoder;
+    private AudioRecord mAudioRecord;
     private MuxerHolder mMuxerHolder;
+
+    private HandlerThread mWorkerHandlerThread;
+    private AudioRecordHandler mAudioHandler;
     private int mTrackIndex;
 
-    public AudioRecorderThread2(MuxerHolder mMuxerHolder) {
+    public AudioRecorderThread2(MuxerHolder muxerHolder) {
         mBufferInfo = new MediaCodec.BufferInfo();
-        this.mMuxerHolder = mMuxerHolder;
-        prepare();
+        mMuxerHolder = muxerHolder;
+
     }
 
-    public static MediaCodecInfo selectAudioCodec(final String mimeType) {
-        ALog.v(TAG, "selectAudioCodec:\t" + mimeType);
-        MediaCodecInfo result = null;
-        // get the list of available codecs
-        final int numCodecs = MediaCodecList.getCodecCount();
-        LOOP:
-        for (int i = 0; i < numCodecs; i++) {
-            final MediaCodecInfo codecInfo = MediaCodecList.getCodecInfoAt(i);
-            if (!codecInfo.isEncoder()) {    // skipp decoder
-                continue;
+    private void innerReleaseAll() {
+        mAudioFormat = null;
+        mBufferInfo = null;
+        mEncoder.release();
+        mEncoder = null;
+        mAudioRecord.release();
+        mAudioRecord = null;
+        mMuxerHolder.onReleaseAudioMux();
+        mWorkerHandlerThread.quit();
+        mWorkerHandlerThread = null;
+        mAudioHandler = null;
+    }
+
+    @Override
+    public void start() {
+        mAudioHandler.start();
+    }
+
+    @Override
+    public void stop() {
+        mAudioHandler.stop();
+    }
+
+    @Override
+    public void release() {
+        mAudioHandler.release();
+    }
+
+    @Override
+    public void prepare() {
+        if (mWorkerHandlerThread == null) {
+            mWorkerHandlerThread = new HandlerThread(TAG, THREAD_PRIORITY_URGENT_AUDIO);
+            mWorkerHandlerThread.start();
+            if (mAudioHandler == null) {
+                mAudioHandler = new AudioRecordHandler(mWorkerHandlerThread.getLooper());
             }
-            final String[] types = codecInfo.getSupportedTypes();
-            for (String type : types) {
-                ALog.d(TAG, "supportedType:" + codecInfo.getName() + ",MIME=" + type);
-                if (type.equalsIgnoreCase(mimeType)) {
-                    result = codecInfo;
-                    break LOOP;
-                }
-            }
+            mAudioHandler.prepare();
         }
-        return result;
+        mAudioHandler.prepare();
     }
 
-    private void prepare() {
-        MediaCodecInfo audioCodecInfo = selectAudioCodec(MIME_TYPE);
+    private void innerPrepare() {
+        MediaCodecInfo audioCodecInfo = VideoUtils.selectAudioCodec(MIME_TYPE);
         if (audioCodecInfo == null) {
             ALog.e(TAG, "Unable to find an appropriate codec for " + MIME_TYPE);
             return;
         }
         ALog.i(TAG, "selected codec: " + audioCodecInfo.getName());
-        audioFormat = MediaFormat.createAudioFormat(MIME_TYPE, EncoderConfigs.AUDIO_SAMPLE_RATE, 1);
-        // AAC LC
-        audioFormat.setInteger(MediaFormat.KEY_AAC_PROFILE, MediaCodecInfo.CodecProfileLevel.AACObjectLC);
-        // 单声道
-        audioFormat.setInteger(MediaFormat.KEY_CHANNEL_MASK, AudioFormat.CHANNEL_IN_MONO);
-        audioFormat.setInteger(MediaFormat.KEY_BIT_RATE, EncoderConfigs.AUDIO_BIT_RATE);
-        audioFormat.setInteger(MediaFormat.KEY_CHANNEL_COUNT, 1);
-        audioFormat.setInteger(MediaFormat.KEY_SAMPLE_RATE, EncoderConfigs.AUDIO_SAMPLE_RATE);
-        ALog.i(TAG, "format: " + audioFormat);
-    }
-
-
-    private void startMediaCodec() throws IOException {
-        if (mEncoder != null) {
-            return;
+        if (mAudioFormat == null) {
+            mAudioFormat = MediaFormat.createAudioFormat(MIME_TYPE, EncoderConfigs.AUDIO_SAMPLE_RATE, 1);
+            // AAC LC
+            mAudioFormat.setInteger(MediaFormat.KEY_AAC_PROFILE, MediaCodecInfo.CodecProfileLevel.AACObjectLC);
+            // 单声道
+            mAudioFormat.setInteger(MediaFormat.KEY_CHANNEL_MASK, AudioFormat.CHANNEL_IN_MONO);
+            mAudioFormat.setInteger(MediaFormat.KEY_BIT_RATE, EncoderConfigs.AUDIO_BIT_RATE);
+            mAudioFormat.setInteger(MediaFormat.KEY_CHANNEL_COUNT, 1);
+            mAudioFormat.setInteger(MediaFormat.KEY_SAMPLE_RATE, EncoderConfigs.AUDIO_SAMPLE_RATE);
+            ALog.i(TAG, "format: " + mAudioFormat);
         }
-        mEncoder = MediaCodec.createEncoderByType(MIME_TYPE);
-        mEncoder.configure(audioFormat, null, null,
-                MediaCodec.CONFIGURE_FLAG_ENCODE);
-        mEncoder.start();
-        ALog.d(TAG, "prepare finishing");
-        prepareAudioRecord();
-        isStart = true;
+        if (mAudioRecord == null) {
+            try {
+                mAudioBufSize = AudioRecord.getMinBufferSize(
+                        EncoderConfigs.AUDIO_SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO,
+                        AudioFormat.ENCODING_PCM_16BIT);
+                try {
+                    mAudioRecord = new AudioRecord(EncoderConfigs.AUDIO_SOURCE,
+                            EncoderConfigs.AUDIO_SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO,
+                            AudioFormat.ENCODING_PCM_16BIT, mAudioBufSize);
+                    if (mAudioRecord.getState() != AudioRecord.STATE_INITIALIZED) {
+                        mAudioRecord = null;
+                    }
+                } catch (Exception e) {
+                    mAudioRecord = null;
+                }
+            } catch (final Exception e) {
+                Log.e(TAG, "AudioThread#runRecord", e);
+            }
+        }
+        if (mEncoder == null) {
+            try {
+                mEncoder = MediaCodec.createEncoderByType(MIME_TYPE);
+                mEncoder.configure(mAudioFormat, null, null,
+                        MediaCodec.CONFIGURE_FLAG_ENCODE);
+            } catch (IOException e) {
+                e.printStackTrace();
+                Log.e(TAG, "AudioThread# encoder", e);
+            }
+
+        }
     }
 
-    private void stopMediaCodec() {
+    private void innerStart() {
+        if (mEncoder != null) {
+            mEncoder.start();
+        }
+        if (mAudioRecord != null) {
+            mAudioRecord.startRecording();
+        }
+        ALog.d(TAG, "prepare finishing");
+    }
+
+    private void innerStop() {
         if (mAudioRecord != null) {
             mAudioRecord.stop();
-            mAudioRecord.release();
-            mAudioRecord = null;
             try {
                 Thread.sleep(100);
             } catch (InterruptedException e) {
@@ -110,103 +159,36 @@ public class AudioRecorderThread2 extends Thread {
         }
         if (mEncoder != null) {
             mEncoder.stop();
-            mEncoder.release();
-            mEncoder = null;
         }
-        isStart = false;
+        if (mMuxerHolder != null) {
+            mMuxerHolder.onReleaseAudioMux();
+        }
         ALog.e(TAG, "stop audio 录制...");
     }
 
-    public synchronized void restart() {
-        isStart = false;
-    }
 
-    private void prepareAudioRecord() {
-        if (mAudioRecord != null) {
-            mAudioRecord.stop();
-            mAudioRecord.release();
-            mAudioRecord = null;
-        }
-        try {
-            mAudioBufSize = android.media.AudioRecord.getMinBufferSize(
-                    EncoderConfigs.AUDIO_SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO,
-                    AudioFormat.ENCODING_PCM_16BIT);
-            //??????
-            // int buffer_size = SAMPLES_PER_FRAME * FRAMES_PER_BUFFER;
-            // if (buffer_size < min_buffer_size)
-            // buffer_size = ((min_buffer_size / SAMPLES_PER_FRAME) + 1) * SAMPLES_PER_FRAME * 2;
-            mAudioRecord = null;
+    private void runRecord() {
+        ByteBuffer buf = ByteBuffer.allocateDirect(mAudioBufSize);
+        int readBytes = mAudioRecord.read(buf, mAudioBufSize);
+        if (readBytes > 0) {
+            buf.position(readBytes);
+            buf.flip();
+            ALog.e(TAG, "got none empty audio");
             try {
-                mAudioRecord = new AudioRecord(EncoderConfigs.AUDIO_SOURCE,
-                        EncoderConfigs.AUDIO_SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO,
-                        AudioFormat.ENCODING_PCM_16BIT, mAudioBufSize);
-                if (mAudioRecord.getState() != AudioRecord.STATE_INITIALIZED) {
-                    mAudioRecord = null;
+                boolean isEnd = encode(buf, readBytes, mMuxerHolder.getPTSUs());
+                if (isEnd) {
+                    mAudioHandler.stop();
                 }
             } catch (Exception e) {
-                mAudioRecord = null;
-            }
-        } catch (final Exception e) {
-            Log.e(TAG, "AudioThread#run", e);
-        }
-        if (mAudioRecord != null) {
-            mAudioRecord.startRecording();
-        }
-    }
-
-    public void queryExit() {
-        synchronized (MUTEX) {
-            isExit = true;
-        }
-    }
-
-    @Override
-    public void run() {
-        setThreadPriority(android.os.Process.THREAD_PRIORITY_URGENT_AUDIO);
-        ByteBuffer buf = null;
-        int readBytes;
-        while (true) {
-            /*启动或者重启*/
-            if (!isStart) {
-                stopMediaCodec();
-                try {
-                    ALog.e("angcyo-->", "audio -- startMediaCodec...");
-                    startMediaCodec();
-                    buf = ByteBuffer.allocateDirect(mAudioBufSize);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                    isStart = false;
-                }
-            } else if (mAudioRecord != null) {
-                if (buf == null) {
-                    continue;
-                }
-                buf.clear();
-                readBytes = mAudioRecord.read(buf, mAudioBufSize);
-                if (readBytes > 0) {
-                    buf.position(readBytes);
-                    buf.flip();
-                    ALog.e(TAG, "got none empty audio");
-                    try {
-                        boolean isEnd = encode(buf, readBytes, mMuxerHolder.getPTSUs());
-                        if (isEnd) {
-                            mAudioRecord.stop();
-                            mAudioRecord.release();
-                            mMuxerHolder.onReleaseAudioMux();
-                            break;
-                        }
-                    } catch (Exception e) {
-                        ALog.e("angcyo-->", "解码音频(Audio)数据 失败");
-                        e.printStackTrace();
-                        mAudioRecord.stop();
-                        mAudioRecord.release();
-                        mMuxerHolder.onReleaseAudioMux();
-                        break;
-                    }
-                }
+                ALog.e("angcyo-->", "解码音频(Audio)数据 失败");
+                e.printStackTrace();
+                mAudioRecord.stop();
+                mAudioRecord.release();
+                mMuxerHolder.onReleaseAudioMux();
             }
         }
     }
+
 
     private boolean encode(final ByteBuffer buffer, final int length, final long presentationTimeUs) {
         boolean isEnd;
@@ -260,7 +242,7 @@ public class AudioRecorderThread2 extends Thread {
                 // this should only invoked at once
                 MediaFormat newFormat = mEncoder.getOutputFormat();
                 mTrackIndex = mMuxerHolder.getMuxer().addTrack(newFormat);
-                mMuxerHolder.setAudioConfiged(true);
+                mMuxerHolder.setAudioConfig(true);
                 ALog.d(TAG, "format configed ");
             } else if (encoderStatus < 0) {
                 ALog.w(TAG, "unexpected result from encoder.dequeueOutputBuffer: " +
@@ -294,6 +276,71 @@ public class AudioRecorderThread2 extends Thread {
         }
         ALog.e(TAG, " encode start end :" + isEnd);
         return isEnd;
+    }
+
+    private class AudioRecordHandler extends Handler implements ILifeCircle {
+
+        private static final int START = 0;
+        private static final int STOP = 1;
+        private static final int RELEASE = 2;
+        private static final int PREPARE = 3;
+        private static final int REPEAT = 4;
+        private boolean isStarted = true;
+
+        AudioRecordHandler(Looper looper) {
+            super(looper);
+        }
+
+
+        @Override
+        public void handleMessage(Message msg) {
+            switch (msg.what) {
+                case START:
+                    isStarted = true;
+                    innerStart();
+                    sendEmptyMessage(REPEAT);
+                    break;
+                case STOP:
+                    isStarted = false;
+                    innerStop();
+                    break;
+                case RELEASE:
+                    innerReleaseAll();
+                    break;
+                case PREPARE:
+                    innerPrepare();
+                    break;
+                case REPEAT:
+                    if (!isStarted) {
+                        return;
+                    }
+                    runRecord();
+                    sendEmptyMessage(REPEAT);
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        @Override
+        public void start() {
+            sendEmptyMessage(START);
+        }
+
+        @Override
+        public void stop() {
+            sendEmptyMessage(STOP);
+        }
+
+        @Override
+        public void release() {
+            sendEmptyMessage(RELEASE);
+        }
+
+        @Override
+        public void prepare() {
+            sendEmptyMessage(PREPARE);
+        }
     }
 
 }

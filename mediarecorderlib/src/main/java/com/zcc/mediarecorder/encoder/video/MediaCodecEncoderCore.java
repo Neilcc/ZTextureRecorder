@@ -75,7 +75,7 @@ public class MediaCodecEncoderCore implements IVideoEncoderCore {
         // configure() call to throw an unhelpful exception.
         format.setInteger(MediaFormat.KEY_COLOR_FORMAT,
                 MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface);
-        format.setInteger(MediaFormat.KEY_BIT_RATE, VideoUtils.getBitRate(width, height));
+        format.setInteger(MediaFormat.KEY_BIT_RATE, VideoUtils.getVideoBitRate(width, height));
         format.setInteger(MediaFormat.KEY_FRAME_RATE, FRAME_RATE);
         format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, FRAME_INTERVAL);
         if (VERBOSE) Log.d(TAG, "format: " + format);
@@ -108,6 +108,16 @@ public class MediaCodecEncoderCore implements IVideoEncoderCore {
      */
     public Surface getInputSurface() {
         return mInputSurface;
+    }
+
+    @Override
+    public void start() {
+        mAudioRecorderThread2.start();
+    }
+
+    @Override
+    public void stop() {
+
     }
 
     /**
@@ -149,7 +159,7 @@ public class MediaCodecEncoderCore implements IVideoEncoderCore {
         if (endOfStream) {
             if (VERBOSE) Log.d(TAG, "sending EOS to encoder");
             mEncoder.signalEndOfInputStream();
-            mAudioRecorderThread2.queryExit();
+            mAudioRecorderThread2.stop();
         }
         ByteBuffer[] encoderOutputBuffers = mEncoder.getOutputBuffers();
         while (true) {
@@ -174,7 +184,7 @@ public class MediaCodecEncoderCore implements IVideoEncoderCore {
 
                 // now that we have the Magic Goodies, start the muxer
                 mTrackIndex = mMuxerHolder.getMuxer().addTrack(newFormat);
-                mMuxerHolder.setFrameConfiged(true);
+                mMuxerHolder.setFrameConfig(true);
             } else if (encoderStatus < 0) {
                 Log.w(TAG, "unexpected result from encoder.dequeueOutputBuffer: " +
                         encoderStatus);
@@ -224,12 +234,6 @@ public class MediaCodecEncoderCore implements IVideoEncoderCore {
                 }
             }
         }
-    }
-
-    @Override
-    public void startRecording() {
-        // ignore frame thread since media codec always get the frames as the surface is set.
-        mAudioRecorderThread2.start();
     }
 
     @Override

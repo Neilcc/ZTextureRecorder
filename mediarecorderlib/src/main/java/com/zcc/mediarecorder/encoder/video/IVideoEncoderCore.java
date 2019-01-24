@@ -2,17 +2,14 @@ package com.zcc.mediarecorder.encoder.video;
 
 import android.view.Surface;
 
-public interface IVideoEncoderCore {
+import com.zcc.mediarecorder.common.ILifeCircle;
+
+public interface IVideoEncoderCore extends ILifeCircle {
 
     public Surface getInputSurface();
 
-    public void release();
-
     public void drainEncoder(boolean endOfStream);
-
-    public void startRecording();
 
     public long getPTSUs();
 
-    public void prepare();
 }

@@ -24,6 +24,7 @@ import android.util.Log;
 import android.view.Surface;
 
 import com.zcc.mediarecorder.ALog;
+import com.zcc.mediarecorder.common.ILifeCircle;
 import com.zcc.mediarecorder.encoder.video.IVideoEncoderCore;
 import com.zcc.mediarecorder.encoder.video.MediaCodecEncoderCore;
 
@@ -50,7 +51,7 @@ import static com.zcc.mediarecorder.encoder.TextureMovieEncoder2.Encoder.MEDIA_C
  * and un-blocks the encoder.
  * <p>
  */
-public class TextureMovieEncoder2 implements Runnable {
+public class TextureMovieEncoder2 implements Runnable , ILifeCircle {
     private static final String TAG = "TextureMovieEncoder2";
     private static final boolean VERBOSE = false;
     private static final int MSG_STOP_RECORDING = 1;
@@ -129,14 +130,6 @@ public class TextureMovieEncoder2 implements Runnable {
         return mVideoEncoder.getPTSUs();
     }
 
-    public void startRecording() {
-        mVideoEncoder.startRecording();
-    }
-
-    public void stopRecording() {
-        mHandler.sendMessage(mHandler.obtainMessage(MSG_STOP_RECORDING));
-    }
-
     public boolean isRecording() {
         synchronized (mReadyFence) {
             return mRunning;
@@ -149,7 +142,6 @@ public class TextureMovieEncoder2 implements Runnable {
                 return;
             }
         }
-
         mHandler.sendMessage(mHandler.obtainMessage(MSG_FRAME_AVAILABLE));
     }
 
@@ -186,10 +178,28 @@ public class TextureMovieEncoder2 implements Runnable {
         mVideoEncoder.release();
     }
 
+    @Override
+    public void start() {
+        mVideoEncoder.start();
+    }
+
+    @Override
+    public void stop() {
+        mHandler.sendMessage(mHandler.obtainMessage(MSG_STOP_RECORDING));
+    }
+
+    @Override
+    public void release() {
+
+    }
+
+    @Override
+    public void prepare() {
+
+    }
+
     public enum Encoder {
         MEDIA_RECORDER,
-        // fixme  remain bugs in media codec
-        @Deprecated
         MEDIA_CODEC
     }
 

@@ -16,25 +16,34 @@ import androidx.annotation.RequiresApi;
 public class MediaRecorderEncoderCore implements IVideoEncoderCore {
     private MediaRecorder mMediaRecorder;
     private int w, h;
-    private String output;
+    private String outputFile;
 
     MediaRecorderEncoderCore(int w, int h, String output) {
         this.w = w;
         this.h = h;
-        this.output = output;
+        this.outputFile = output;
     }
 
+    public void updateParam(int w, int h, String outputFile) {
+        this.w = w;
+        this.h = h;
+        this.outputFile = outputFile;
+    }
+
+    @Override
     public void prepare() {
-        mMediaRecorder = new MediaRecorder();
+        if (mMediaRecorder == null) {
+            mMediaRecorder = new MediaRecorder();
+        }
         mMediaRecorder.reset();
         mMediaRecorder.setAudioSource(MediaRecorder.AudioSource.CAMCORDER);
         mMediaRecorder.setVideoSource(MediaRecorder.VideoSource.SURFACE);
         mMediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
         mMediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
-        mMediaRecorder.setVideoEncodingBitRate(VideoUtils.getBitRate(w, h));
+        mMediaRecorder.setVideoEncodingBitRate(VideoUtils.getVideoBitRate(w, h));
         mMediaRecorder.setVideoSize(w, h);
         mMediaRecorder.setVideoFrameRate(30);
-        mMediaRecorder.setOutputFile(output);
+        mMediaRecorder.setOutputFile(outputFile);
         mMediaRecorder.setOnErrorListener(new MediaRecorder.OnErrorListener() {
             @Override
             public void onError(MediaRecorder mr, int what, int extra) {
@@ -67,19 +76,26 @@ public class MediaRecorderEncoderCore implements IVideoEncoderCore {
     }
 
     @Override
-    public void release() {
+    public void start() {
+        mMediaRecorder.start();
+    }
+
+    @Override
+    public void stop() {
         mMediaRecorder.stop();
         mMediaRecorder.reset();
     }
 
     @Override
-    public void drainEncoder(boolean endOfStream) {
-// ignore
+    public void release() {
+        mMediaRecorder.reset();
+        mMediaRecorder.release();
+        mMediaRecorder = null;
     }
 
     @Override
-    public void startRecording() {
-        mMediaRecorder.start();
+    public void drainEncoder(boolean endOfStream) {
+// ignore
     }
 
     @Override
