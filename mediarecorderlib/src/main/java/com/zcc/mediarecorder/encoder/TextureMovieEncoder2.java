@@ -31,35 +31,14 @@ import com.zcc.mediarecorder.encoder.video.MediaCodecEncoderCore;
 import java.io.IOException;
 import java.lang.ref.WeakReference;
 
-import static com.zcc.mediarecorder.encoder.TextureMovieEncoder2.Encoder.MEDIA_CODEC;
+import static com.zcc.mediarecorder.encoder.TextureMovieEncoder2.EncoderType.MEDIA_CODEC;
 
-/**
- * Encode a movie from frames rendered from an external texture image.
- * <p>
- * The object wraps an encoder running partly on two different threads.  An external thread
- * is sending data to the encoder's input surface, and we (the encoder thread) are pulling
- * the encoded data out and feeding it into a MediaMuxer.
- * <p>
- * We could block forever waiting for the encoder, but because of the thread decomposition
- * that turns out to be a little awkward (we want to call signalEndOfInputStream() from the
- * encoder thread to avoid thread-safety issues, but we can't do that if we're blocked on
- * the encoder).  If we don't pull from the encoder often enough, the producer side can back up.
- * <p>
- * The solution is to have the producer trigger drainEncoder() on every frame, before it
- * submits the new frame.  drainEncoder() might run before or after the frame is submitted,
- * but it doesn't matter -- either it runs early and prevents blockage, or it runs late
- * and un-blocks the encoder.
- * <p>
- */
-public class TextureMovieEncoder2 implements Runnable , ILifeCircle {
+public class TextureMovieEncoder2 implements Runnable, ILifeCircle {
     private static final String TAG = "TextureMovieEncoder2";
-    private static final boolean VERBOSE = false;
     private static final int MSG_STOP_RECORDING = 1;
     private static final int MSG_FRAME_AVAILABLE = 2;
     private final Object mReadyFence = new Object();      // guards ready/running
-    // ----- accessed exclusively by encoder thread -----
     private IVideoEncoderCore mVideoEncoder;
-    // ----- accessed by multiple threads -----
     private volatile EncoderHandler mHandler;
     private Handler mMainHandler = new Handler(Looper.getMainLooper());
     private volatile boolean isPrepared = false;
@@ -67,19 +46,19 @@ public class TextureMovieEncoder2 implements Runnable , ILifeCircle {
     private boolean mRunning;
 
     /**
-     * Tells the video recorder to start recording.  (Call from non-encoder thread.)
+     * Tells the video recorder to start recording.  (Call from non-encoderType thread.)
      * <p>
      * Creates a new thread, which will own the provided MediaCodecEncoderCore.  When the
      * thread exits, the MediaCodecEncoderCore will be released.
      * <p>
      * Returns after the recorder thread has started and is ready to accept Messages.
      */
-    public TextureMovieEncoder2(int width, int height, String outputFile, Encoder encoder) {
-        Log.d(TAG, "Encoder: startRecording()");
-        if (encoder == null) {
-            encoder = MEDIA_CODEC;
+    public TextureMovieEncoder2(int width, int height, String outputFile, EncoderType encoderType) {
+        Log.d(TAG, "EncoderType: startRecording()");
+        if (encoderType == null) {
+            encoderType = MEDIA_CODEC;
         }
-        switch (encoder) {
+        switch (encoderType) {
             case MEDIA_CODEC:
                 try {
                     mVideoEncoder = new MediaCodecEncoderCore(width, height, outputFile);
@@ -101,11 +80,11 @@ public class TextureMovieEncoder2 implements Runnable , ILifeCircle {
                 }
                 break;
             default:
-                throw new IllegalStateException("unexpected encoder type");
+                throw new IllegalStateException("unexpected encoderType type");
         }
         synchronized (mReadyFence) {
             if (mRunning) {
-                Log.w(TAG, "Encoder thread already running");
+                Log.w(TAG, "EncoderType thread already running");
                 return;
             }
             mRunning = true;
@@ -157,7 +136,7 @@ public class TextureMovieEncoder2 implements Runnable , ILifeCircle {
         }
         Looper.loop();
 
-        Log.d(TAG, "Encoder thread exiting");
+        Log.d(TAG, "EncoderType thread exiting");
         synchronized (mReadyFence) {
             mReady = mRunning = false;
             mHandler = null;
@@ -169,9 +148,6 @@ public class TextureMovieEncoder2 implements Runnable , ILifeCircle {
         mVideoEncoder.drainEncoder(false);
     }
 
-    /**
-     * Handles a request to stop encoding.
-     */
     private void handleStopRecording() {
         ALog.dd("handleStopRecording");
         mVideoEncoder.drainEncoder(true);
@@ -198,14 +174,11 @@ public class TextureMovieEncoder2 implements Runnable , ILifeCircle {
 
     }
 
-    public enum Encoder {
+    public enum EncoderType {
         MEDIA_RECORDER,
         MEDIA_CODEC
     }
 
-    /**
-     * Handles encoder state change requests.  The handler is created on the encoder thread.
-     */
     private static class EncoderHandler extends Handler {
         private WeakReference<TextureMovieEncoder2> mWeakEncoder;
 
@@ -235,12 +208,6 @@ public class TextureMovieEncoder2 implements Runnable , ILifeCircle {
                 default:
                     throw new RuntimeException("Unhandled msg what=" + what);
             }
-        }
-    }
-
-    public class EncoderException extends Exception {
-        public EncoderException(String message) {
-            super(message);
         }
     }
 }

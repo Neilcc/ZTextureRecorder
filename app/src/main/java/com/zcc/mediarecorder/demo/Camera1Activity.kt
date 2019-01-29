@@ -38,7 +38,7 @@ class Camera1Activity : AppCompatActivity(), View.OnClickListener {
         CapturingManager()
     }
 
-    private var currentEncoder: TextureMovieEncoder2.Encoder = TextureMovieEncoder2.Encoder.MEDIA_RECORDER
+    private var currentEncoderType: TextureMovieEncoder2.EncoderType = TextureMovieEncoder2.EncoderType.MEDIA_RECORDER
     private var isRecordingNow = false
 
 
@@ -76,11 +76,11 @@ class Camera1Activity : AppCompatActivity(), View.OnClickListener {
         when (v.id) {
             R.id.btn_record -> isRecordingNow = doRecordStuff(isRecordingNow)
             R.id.btn_change_codec -> {
-                if (currentEncoder == TextureMovieEncoder2.Encoder.MEDIA_CODEC) {
-                    currentEncoder = TextureMovieEncoder2.Encoder.MEDIA_RECORDER
+                if (currentEncoderType == TextureMovieEncoder2.EncoderType.MEDIA_CODEC) {
+                    currentEncoderType = TextureMovieEncoder2.EncoderType.MEDIA_RECORDER
                     encodeButton.text = getString(R.string.media_recorder)
                 } else {
-                    currentEncoder = TextureMovieEncoder2.Encoder.MEDIA_CODEC
+                    currentEncoderType = TextureMovieEncoder2.EncoderType.MEDIA_CODEC
                     encodeButton.text = getString(R.string.media_codec)
                 }
                 Toast.makeText(this@Camera1Activity,
@@ -104,7 +104,7 @@ class Camera1Activity : AppCompatActivity(), View.OnClickListener {
             camera1SurfaceRender.runOnGLThread {
                 capturingManager.initCapturing(camera1SurfaceRender.cameraW, camera1SurfaceRender.cameraH,
                         path,
-                        Texture2dProgram.ProgramType.TEXTURE_EXT, currentEncoder, null)
+                        Texture2dProgram.ProgramType.TEXTURE_EXT, currentEncoderType, null)
                 capturingManager.startCapturing()
             }
         }

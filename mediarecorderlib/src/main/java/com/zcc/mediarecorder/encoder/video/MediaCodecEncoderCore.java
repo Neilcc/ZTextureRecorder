@@ -69,6 +69,7 @@ public class MediaCodecEncoderCore implements IVideoEncoderCore {
             e.printStackTrace();
             ALog.e(TAG, "create muxer error");
             EventManager.get().sendMsg(ErrorCode.ERROR_MEDIA_COMMON, "create muxer error");
+            return;
         }
         MediaFormat format = MediaFormat.createVideoFormat(MIME_TYPE, width, height);
         // Set some properties.  Failing to specify some of these can cause the MediaCodec

@@ -166,7 +166,6 @@ public class AudioRecorderThread2 implements ILifeCircle {
         ALog.e(TAG, "stop audio 录制...");
     }
 
-
     private void runRecord() {
         ByteBuffer buf = ByteBuffer.allocateDirect(mAudioBufSize);
         int readBytes = mAudioRecord.read(buf, mAudioBufSize);
@@ -188,7 +187,6 @@ public class AudioRecorderThread2 implements ILifeCircle {
             }
         }
     }
-
 
     private boolean encode(final ByteBuffer buffer, final int length, final long presentationTimeUs) {
         boolean isEnd;
@@ -290,7 +288,6 @@ public class AudioRecorderThread2 implements ILifeCircle {
         AudioRecordHandler(Looper looper) {
             super(looper);
         }
-
 
         @Override
         public void handleMessage(Message msg) {

@@ -3,14 +3,11 @@ package com.zcc.mediarecorder;
 import android.opengl.EGLContext;
 import android.opengl.GLES20;
 import android.opengl.Matrix;
-import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.view.Surface;
 
-import com.zcc.mediarecorder.encoder.TextureMovieEncoder2;
-import com.zcc.mediarecorder.encoder.video.MediaCodecEncoderCore;
 import com.zcc.mediarecorder.gles.EglCore;
 import com.zcc.mediarecorder.gles.FlatShadedProgram;
 import com.zcc.mediarecorder.gles.FullFrameRect;
@@ -18,16 +15,17 @@ import com.zcc.mediarecorder.gles.GlUtil;
 import com.zcc.mediarecorder.gles.Texture2dProgram;
 import com.zcc.mediarecorder.gles.WindowSurface;
 
-class ProduceFrameThread extends Thread {
+/**
+ * This is a GL thread.
+ */
+class ProduceFrameGLThread extends Thread {
 
-    private static final String TAG = "ProduceFrameThread";
+    private static final String TAG = "ProduceFrameGLThread";
     // Used to wait for the thread to start.
     private final Object mStartLock = new Object();
     private final Object WORK_MUTEX = new Object();
-    private MediaCodecEncoderCore mEncoderCore;
     private WindowSurface mInputWindowSurface;
     private boolean mReady = false;
-    private TextureMovieEncoder2 mVideoEncoder;
     private EglCore mEglCore;
     private ProduceThreadHandler mDefaultHandler;
     // Used for off-screen rendering.
@@ -39,14 +37,12 @@ class ProduceFrameThread extends Thread {
     private float[] mIdentityMatrix = new float[16];
     private EGLContext mEGLContext;
     private Texture2dProgram.ProgramType textureType;
-    private TextureMovieEncoder2.Encoder mVideoEncoderType;
     private int w, h;
     private String output;
+    private Surface mInputSurface;
 
-    ProduceFrameThread(int w, int h, String output, EGLContext context,
-                       Texture2dProgram.ProgramType textureType,
-                       TextureMovieEncoder2.Encoder encoder
-    ) {
+    ProduceFrameGLThread(int w, int h, String output, EGLContext context,
+                         Texture2dProgram.ProgramType textureType) {
         super("encode" + System.nanoTime());
         this.w = w;
         this.h = h;
@@ -57,40 +53,23 @@ class ProduceFrameThread extends Thread {
         }
         Matrix.setIdentityM(mIdentityMatrix, 0);
         this.textureType = textureType;
-        this.mVideoEncoderType = encoder;
-        if (mVideoEncoderType == TextureMovieEncoder2.Encoder.MEDIA_RECORDER
-                && Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
-            throw new IllegalStateException("media recorder can only be used api >= 21");
-        }
     }
 
-    /**
-     * Stops the video encoder if it's running.
-     */
-    private void stopEncoder() {
-        if (mVideoEncoder != null) {
-            ALog.d(TAG, "stopping recorder, mVideoEncoder=" + mVideoEncoder);
-            mVideoEncoder.stopRecording();
-            mVideoEncoder = null;
-        }
-
+    private void stopGLSurface() {
         if (mInputWindowSurface != null) {
             mInputWindowSurface.release();
             mInputWindowSurface = null;
         }
     }
 
+    public void bindInputSurface(Surface inputSurface) {
+        mInputSurface = inputSurface;
+    }
+
     public ProduceThreadHandler getHandler() {
         return mDefaultHandler;
     }
 
-    private void initEncoder() {
-        if (mVideoEncoderType == null) {
-            mVideoEncoderType = TextureMovieEncoder2.Encoder.MEDIA_CODEC;
-        }
-        mVideoEncoder = new TextureMovieEncoder2(w, h, output,
-                mVideoEncoderType);
-    }
 
     @Override
     public void run() {
@@ -101,8 +80,7 @@ class ProduceFrameThread extends Thread {
         } else {
             throw new RuntimeException("empty GLContext");
         }
-        initEncoder();
-        prepareGl(mVideoEncoder.getRecordSurface());
+        prepareGl(mInputSurface);
         synchronized (mStartLock) {
             mReady = true;
             mStartLock.notify();    // signal waitUntilReady()
@@ -133,10 +111,6 @@ class ProduceFrameThread extends Thread {
 
     public void startRecord() {
         waitUntilReady();
-        mVideoEncoder.startRecording();
-        synchronized (WORK_MUTEX) {
-
-        }
     }
 
     /**
@@ -180,15 +154,13 @@ class ProduceFrameThread extends Thread {
 
     private void queryStop() {
         synchronized (WORK_MUTEX) {
-            stopEncoder();
+            stopGLSurface();
         }
     }
 
     private void pushFrame(int textureID) {
         synchronized (WORK_MUTEX) {
             ALog.d(TAG, "onframe texture " + textureID);
-            if (mVideoEncoder == null) return;
-            mVideoEncoder.frameAvailableSoon();
             draw(textureID);
         }
     }
@@ -199,7 +171,7 @@ class ProduceFrameThread extends Thread {
         }
         mInputWindowSurface.makeCurrent();
         GlUtil.checkGlError("draw start");
-        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);     //  clear pixels outside rect
+        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
         GLES20.glViewport(0, 0, w, h);
         mFullScreen.drawFrame(textureID, mIdentityMatrix);
         GlUtil.checkGlError("draw done");
@@ -221,14 +193,13 @@ class ProduceFrameThread extends Thread {
         private static final int START = 1;
         private static final int STOP = 2;
         private static final int NEW_FRAME = 3;
-
-        private ProduceFrameThread mProduceFrameThread;
-        private boolean isStarted = false;
         private final Object MUTEX = new Object();
+        private ProduceFrameGLThread mProduceFrameGLThread;
+        private boolean isStarted = false;
 
         ProduceThreadHandler(Looper looper) {
             super(looper);
-            mProduceFrameThread = (ProduceFrameThread) getLooper().getThread();
+            mProduceFrameGLThread = (ProduceFrameGLThread) getLooper().getThread();
         }
 
         void pushFrame(int textureId) {
@@ -236,7 +207,6 @@ class ProduceFrameThread extends Thread {
         }
 
         void queryStop() {
-            mProduceFrameThread.stopEncoder();
             Message.obtain(this, STOP).sendToTarget();
         }
 
@@ -248,8 +218,8 @@ class ProduceFrameThread extends Thread {
 
         @Override
         public void handleMessage(Message msg) {
-            synchronized (MUTEX){
-                if(!isStarted){
+            synchronized (MUTEX) {
+                if (!isStarted) {
                     return;
                 }
             }
@@ -259,10 +229,11 @@ class ProduceFrameThread extends Thread {
                 case START:
                     break;
                 case STOP:
-                    mProduceFrameThread.queryStop();
+                    mProduceFrameGLThread.stopGLSurface();
+                    Looper.myLooper().quit();
                     break;
                 case NEW_FRAME:
-                    mProduceFrameThread.pushFrame(msg.arg1);
+                    mProduceFrameGLThread.pushFrame(msg.arg1);
                     break;
             }
         }
