@@ -32,8 +32,15 @@ import com.zcc.mediarecorder.encoder.core.recorder.MediaRecorderEncoderCore;
 import java.io.IOException;
 import java.lang.ref.WeakReference;
 
+import androidx.annotation.UiThread;
+
 import static com.zcc.mediarecorder.encoder.TextureMovieEncoder2.EncoderType.MEDIA_CODEC;
 
+/**
+ * In theory, encoder should be reused in stop to prepare.
+ * Let's check it. assume that the source and size do not change during restart.
+ * Media recorder and audio record can do this, and MediaCodec can also do it.
+ */
 public class TextureMovieEncoder2 implements Runnable, ILifeCircle {
     private static final String TAG = "TextureMovieEncoder2";
     private static final int MSG_STOP_RECORDING = 1;
@@ -54,8 +61,9 @@ public class TextureMovieEncoder2 implements Runnable, ILifeCircle {
      * <p>
      * Returns after the recorder thread has started and is ready to accept Messages.
      */
+    @UiThread
     public TextureMovieEncoder2(int width, int height, String outputFile, EncoderType encoderType) {
-        Log.d(TAG, "EncoderType: startRecording()");
+        ALog.d(TAG, "EncoderType: startRecording()");
         if (encoderType == null) {
             encoderType = MEDIA_CODEC;
         }
@@ -66,18 +74,11 @@ public class TextureMovieEncoder2 implements Runnable, ILifeCircle {
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
-                isPrepared = true;
                 break;
             case MEDIA_RECORDER:
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                     mVideoEncoder = new MediaRecorderEncoderCore(width, height, outputFile);
-                    mMainHandler.post(new Runnable() {
-                        @Override
-                        public void run() {
-                            mVideoEncoder.doPrepare();
-                            isPrepared = true;
-                        }
-                    });
+                    mVideoEncoder.doPrepare();
                 }
                 break;
             default:
@@ -89,8 +90,6 @@ public class TextureMovieEncoder2 implements Runnable, ILifeCircle {
                 return;
             }
             mRunning = true;
-            while (!isPrepared) {
-            }
             new Thread(this, "TextureMovieEncoder").start();
             while (!mReady) {
                 try {
@@ -136,8 +135,7 @@ public class TextureMovieEncoder2 implements Runnable, ILifeCircle {
             mReadyFence.notify();
         }
         Looper.loop();
-
-        Log.d(TAG, "EncoderType thread exiting");
+        ALog.d(TAG, "EncoderType thread exiting");
         synchronized (mReadyFence) {
             mReady = mRunning = false;
             mHandler = null;
