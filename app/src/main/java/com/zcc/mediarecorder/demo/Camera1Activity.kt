@@ -16,7 +16,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.zcc.mediarecorder.CapturingManager
 import com.zcc.mediarecorder.encoder.TextureMovieEncoder2
-import com.zcc.mediarecorder.gles.Texture2dProgram
+import com.zcc.mediarecorder.frameproducer.gles.Texture2dProgram
 
 class Camera1Activity : AppCompatActivity(), View.OnClickListener {
     private val recordButton: Button by lazy {

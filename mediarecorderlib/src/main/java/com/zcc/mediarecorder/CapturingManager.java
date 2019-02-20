@@ -6,18 +6,22 @@ import android.os.Build;
 import android.os.Environment;
 
 import com.zcc.mediarecorder.encoder.TextureMovieEncoder2;
-import com.zcc.mediarecorder.gles.Texture2dProgram;
+import com.zcc.mediarecorder.frameproducer.FrameProducerThread;
+import com.zcc.mediarecorder.frameproducer.gles.Texture2dProgram;
 
 import java.io.File;
 
+/**
+ * It have not been decided whether this manager can be reprepared after stop,
+ * hence let's do it in on shot temperately
+ */
 public class CapturingManager {
 
     private static final String TAG = "CapturingManager";
-    private ProduceFrameGLThread mProduceFrameGLThread;
+    private FrameProducerThread mFrameProducerThread;
     private String mVideoPath;
     private int mVideoWidth = 0;
     private int mVideoHeight = 0;
-    private String mFilePath = "";
     private EGLContext mEglContext;
     private Texture2dProgram.ProgramType mTextureType;
     private TextureMovieEncoder2.EncoderType mEncoderType;
@@ -60,21 +64,21 @@ public class CapturingManager {
             mEncoderType = TextureMovieEncoder2.EncoderType.MEDIA_CODEC;
         }
         if (mTextureMovieEncoder != null) {
-            mTextureMovieEncoder.release();
+            mTextureMovieEncoder.doRelease();
             mTextureMovieEncoder = null;
         }
-        if (mProduceFrameGLThread != null) {
-            mProduceFrameGLThread.getHandler().queryStop();
-            mProduceFrameGLThread = null;
+        if (mFrameProducerThread != null) {
+            mFrameProducerThread.getHandler().queryStop();
+            mFrameProducerThread = null;
         }
-        mProduceFrameGLThread = new ProduceFrameGLThread(mVideoWidth, mVideoHeight,
-                mFilePath, mEglContext, mTextureType);
-        mProduceFrameGLThread.start();
-
-        mTextureMovieEncoder = new TextureMovieEncoder2(mVideoWidth, mVideoHeight, mFilePath,
+        mTextureMovieEncoder = new TextureMovieEncoder2(mVideoWidth, mVideoHeight, "",
                 mEncoderType);
-        mTextureMovieEncoder.prepare();
-        mProduceFrameGLThread.bindInputSurface(mTextureMovieEncoder.getRecordSurface());
+        mTextureMovieEncoder.doPrepare();
+
+        // it cannot be reused, new a new object when you want to reprepare
+        mFrameProducerThread = new FrameProducerThread(mVideoWidth, mVideoHeight,
+                mEglContext, mTextureType, mTextureMovieEncoder.getRecordSurface());
+        mFrameProducerThread.start();
     }
 
     public synchronized boolean isStarted() {
@@ -83,16 +87,16 @@ public class CapturingManager {
 
     public void captureFrame(int textureId) {
         mTextureMovieEncoder.frameAvailableSoon();
-        mProduceFrameGLThread.getHandler().pushFrame(textureId);
+        mFrameProducerThread.getHandler().pushFrame(textureId);
     }
 
     public synchronized void startCapturing() {
         if (isStarted) {
-            throw new IllegalStateException(" stop capturing first");
+            throw new IllegalStateException(" doStop capturing first");
         }
         ALog.d(TAG, "--- startCapturing\tpath" + mVideoPath);
-        mProduceFrameGLThread.startRecord();
-        mTextureMovieEncoder.start();
+        mFrameProducerThread.startRecord();
+        mTextureMovieEncoder.doStart();
         isStarted = true;
     }
 
@@ -100,11 +104,11 @@ public class CapturingManager {
         if (!isStarted) return;
         isStarted = false;
         ALog.d(TAG, "--- stopCapturing");
-        mProduceFrameGLThread.getHandler().queryStop();
+        mFrameProducerThread.getHandler().queryStop();
     }
 
     public synchronized void release() {
-        // should reInit before start
+        // should reInit before doStart
     }
 
 }

@@ -25,8 +25,9 @@ import android.view.Surface;
 
 import com.zcc.mediarecorder.ALog;
 import com.zcc.mediarecorder.common.ILifeCircle;
-import com.zcc.mediarecorder.encoder.video.IVideoEncoderCore;
-import com.zcc.mediarecorder.encoder.video.MediaCodecEncoderCore;
+import com.zcc.mediarecorder.encoder.core.IVideoEncoderCore;
+import com.zcc.mediarecorder.encoder.core.codec.MediaCodecEncoderCore;
+import com.zcc.mediarecorder.encoder.core.recorder.MediaRecorderEncoderCore;
 
 import java.io.IOException;
 import java.lang.ref.WeakReference;
@@ -46,7 +47,7 @@ public class TextureMovieEncoder2 implements Runnable, ILifeCircle {
     private boolean mRunning;
 
     /**
-     * Tells the video recorder to start recording.  (Call from non-encoderType thread.)
+     * Tells the video recorder to doStart recording.  (Call from non-encoderType thread.)
      * <p>
      * Creates a new thread, which will own the provided MediaCodecEncoderCore.  When the
      * thread exits, the MediaCodecEncoderCore will be released.
@@ -73,7 +74,7 @@ public class TextureMovieEncoder2 implements Runnable, ILifeCircle {
                     mMainHandler.post(new Runnable() {
                         @Override
                         public void run() {
-                            mVideoEncoder.prepare();
+                            mVideoEncoder.doPrepare();
                             isPrepared = true;
                         }
                     });
@@ -130,7 +131,7 @@ public class TextureMovieEncoder2 implements Runnable, ILifeCircle {
         Looper.prepare();
         synchronized (mReadyFence) {
             mHandler = new EncoderHandler(this);
-            mVideoEncoder.prepare();
+            mVideoEncoder.doPrepare();
             mReady = true;
             mReadyFence.notify();
         }
@@ -151,26 +152,26 @@ public class TextureMovieEncoder2 implements Runnable, ILifeCircle {
     private void handleStopRecording() {
         ALog.dd("handleStopRecording");
         mVideoEncoder.drainEncoder(true);
-        mVideoEncoder.release();
+        mVideoEncoder.doRelease();
     }
 
     @Override
-    public void start() {
-        mVideoEncoder.start();
+    public void doStart() {
+        mVideoEncoder.doStart();
     }
 
     @Override
-    public void stop() {
+    public void doStop() {
         mHandler.sendMessage(mHandler.obtainMessage(MSG_STOP_RECORDING));
     }
 
     @Override
-    public void release() {
+    public void doRelease() {
 
     }
 
     @Override
-    public void prepare() {
+    public void doPrepare() {
 
     }
 
