@@ -1,11 +1,15 @@
 package com.zcc.mediarecorder.demo
 
 import android.Manifest
+import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
+import android.content.ServiceConnection
 import android.content.pm.PackageManager
 import android.graphics.PixelFormat
 import android.opengl.GLSurfaceView
 import android.os.Bundle
+import android.os.IBinder
 import android.util.Log
 import android.view.View
 import android.widget.Button
@@ -19,6 +23,12 @@ import com.zcc.mediarecorder.encoder.TextureMovieEncoder2
 import com.zcc.mediarecorder.frameproducer.gles.Texture2dProgram
 
 class Camera1Activity : AppCompatActivity(), View.OnClickListener {
+    private val startServiceBtn: Button by lazy {
+        findViewById<Button>(R.id.btn_start_service)
+    }
+    private val bindServiceBtn: Button by lazy {
+        findViewById<Button>(R.id.btn_bind_service)
+    }
     private val recordButton: Button by lazy {
         findViewById<Button>(R.id.btn_record)
     }
@@ -41,9 +51,26 @@ class Camera1Activity : AppCompatActivity(), View.OnClickListener {
     private var currentEncoderType: TextureMovieEncoder2.EncoderType = TextureMovieEncoder2.EncoderType.MEDIA_RECORDER
     private var isRecordingNow = false
 
+    override fun onStart() {
+        super.onStart()
+        Log.d("zcc", "onact start")
+    }
+
+    override fun onResumeFragments() {
+        super.onResumeFragments()
+        Log.d("zcc", "onact resume")
+    }
+
+
+
+    override fun onStop() {
+        super.onStop()
+        Log.d("zcc", "onact stop")}
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Log.d("zcc", "onact create")
+
         setContentView(R.layout.activity_main)
         recordButton.setOnClickListener(this)
         encodeButton.setOnClickListener(this)
@@ -53,6 +80,24 @@ class Camera1Activity : AppCompatActivity(), View.OnClickListener {
             ActivityCompat.requestPermissions(this, PERMISSIONS, REQUEST_CODE_PERMISSION)
         } else {
             initCameraSurface()
+        }
+
+        startServiceBtn.setOnClickListener {
+            val intent = Intent(this@Camera1Activity, MyService().javaClass)
+            startService(intent)
+        }
+
+        bindServiceBtn.setOnClickListener {
+            val intent = Intent(this@Camera1Activity, MyService().javaClass)
+            bindService(intent, object :ServiceConnection {
+                override fun onServiceConnected(p0: ComponentName?, p1: IBinder?) {
+                    Log.d("zcc", "onservice connectd: " + p1.hashCode())
+                }
+
+                override fun onServiceDisconnected(p0: ComponentName?) {
+                    Log.d("zcc", "onservice onServiceDisconnected")
+                }
+            }, Context.BIND_AUTO_CREATE)
         }
     }
 
@@ -119,11 +164,18 @@ class Camera1Activity : AppCompatActivity(), View.OnClickListener {
     override fun onResume() {
         super.onResume()
         cameraGLSurface.onResume()
+        Log.d("zcc", "onact onreusme")
     }
 
     override fun onPause() {
         cameraGLSurface.onPause()
+        Log.d("zcc", "onact onpause")
         super.onPause()
+    }
+
+    override fun onRestart() {
+        super.onRestart()
+        Log.d("zcc", "onact restat")
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
