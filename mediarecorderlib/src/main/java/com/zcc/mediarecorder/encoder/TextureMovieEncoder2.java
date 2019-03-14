@@ -20,6 +20,7 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
+import android.support.annotation.UiThread;
 import android.util.Log;
 import android.view.Surface;
 
@@ -32,7 +33,6 @@ import com.zcc.mediarecorder.encoder.core.recorder.MediaRecorderEncoderCore;
 import java.io.IOException;
 import java.lang.ref.WeakReference;
 
-import androidx.annotation.UiThread;
 
 import static com.zcc.mediarecorder.encoder.TextureMovieEncoder2.EncoderType.MEDIA_CODEC;
 

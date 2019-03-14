@@ -75,7 +75,7 @@ public class CapturingManager {
                 mEncoderType);
         mTextureMovieEncoder.doPrepare();
 
-        // it cannot be reused, new a new object when you want to reprepare
+        // it cannot be reused, a new object when you want to reprepare
         mFrameProducerThread = new FrameProducerThread(mVideoWidth, mVideoHeight,
                 mEglContext, mTextureType, mTextureMovieEncoder.getRecordSurface());
         mFrameProducerThread.start();

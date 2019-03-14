@@ -54,21 +54,7 @@
             android:layout_margin="10dp"
             android:text="@string/todecoder" />
 
-        <Button
-            android:id="@+id/btn_start_service"
-            android:layout_width="130dp"
-            android:layout_height="50dp"
-            android:layout_below="@+id/btn_change_codec"
-            android:layout_alignParentRight="true"
-            android:text="start service" />
 
-        <Button
-            android:id="@+id/btn_bind_service"
-            android:layout_width="130dp"
-            android:layout_height="50dp"
-            android:layout_below="@+id/btn_start_service"
-            android:layout_alignParentRight="true"
-            android:text="bind Service" />
     </RelativeLayout>
 
 </RelativeLayout>

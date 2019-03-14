@@ -2,8 +2,10 @@ package com.zcc.mediarecorder.encoder.core.recorder;
 
 import android.media.MediaRecorder;
 import android.os.Build;
+import android.support.annotation.RequiresApi;
 import android.view.Surface;
 
+import com.zcc.mediarecorder.ALog;
 import com.zcc.mediarecorder.EventManager;
 import com.zcc.mediarecorder.common.ErrorCode;
 import com.zcc.mediarecorder.encoder.core.IVideoEncoderCore;
@@ -11,7 +13,6 @@ import com.zcc.mediarecorder.encoder.utils.VideoUtils;
 
 import java.io.IOException;
 
-import androidx.annotation.RequiresApi;
 
 @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
 public class MediaRecorderEncoderCore implements IVideoEncoderCore {
@@ -64,10 +65,12 @@ public class MediaRecorderEncoderCore implements IVideoEncoderCore {
         mMediaRecorder.setAudioEncodingBitRate(44800);
         try {
             mMediaRecorder.prepare();
+            ALog.dd("prepear ok meida recorder");
         } catch (IOException e) {
             e.printStackTrace();
             EventManager.get().sendMsg(ErrorCode.ERROR_MEDIA_COMMON,
                     "media Recorder doPrepare error: " + e.getMessage());
+            ALog.dd("prepare failed media recorder");
         }
     }
 

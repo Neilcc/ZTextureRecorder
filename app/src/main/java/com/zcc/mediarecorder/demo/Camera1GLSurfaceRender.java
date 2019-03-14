@@ -42,7 +42,6 @@ public class Camera1GLSurfaceRender implements GLSurfaceView.Renderer, Camera.Pr
         this.mMainHandler = new Handler(Looper.getMainLooper());
         this.mActivity = activity;
         this.mGLSurface = mGLSurface;
-
     }
 
     public void setOnTextureRendListener(OnTextureRendListener onTextureRendListener) {
