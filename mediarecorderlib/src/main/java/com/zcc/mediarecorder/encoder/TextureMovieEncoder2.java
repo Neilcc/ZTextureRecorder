@@ -41,7 +41,7 @@ public class TextureMovieEncoder2 implements ILifeCircle {
 
     @UiThread
     public TextureMovieEncoder2(int width, int height, String outputFile, EncoderType encoderType) {
-        ALog.d(TAG, "EncoderType: startRecording()");
+        ALog.d(TAG, "constructor");
         if (encoderType == null) {
             encoderType = MEDIA_CODEC;
         }
@@ -65,6 +65,7 @@ public class TextureMovieEncoder2 implements ILifeCircle {
     }
 
     public Surface getRecordSurface() {
+        ALog.d(TAG, "getRecordSurface");
         return mMovieEncoder.getInputSurface();
     }
 
@@ -84,6 +85,7 @@ public class TextureMovieEncoder2 implements ILifeCircle {
     public void doStop() {
         ALog.d(TAG, "doStop");
         mMovieEncoder.drainEncoder(true);
+        mMovieEncoder.doStop();
     }
 
     @Override

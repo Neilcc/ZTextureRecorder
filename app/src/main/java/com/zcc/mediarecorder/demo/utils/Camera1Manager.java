@@ -42,7 +42,6 @@ public class Camera1Manager implements Camera.PreviewCallback {
         } else {
             result = (info.orientation - degrees + 360) % 360;
         }
-
         return result;
     }
 
@@ -130,6 +129,14 @@ public class Camera1Manager implements Camera.PreviewCallback {
                 mOuterPreviewCallback.onPreviewFrame(data, camera);
             }
         }
+    }
+
+    public void onResume() {
+
+    }
+
+    public void onPause() {
+
     }
 
     public void release() {

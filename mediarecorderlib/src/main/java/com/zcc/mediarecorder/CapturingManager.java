@@ -18,12 +18,13 @@ import java.io.File;
 public class CapturingManager {
 
     private static final String TAG = "CapturingManager";
+    private final Object MUTEX = new Object();
     private FrameProducerThread mFrameProducerThread;
     private String mVideoPath;
     private int mVideoWidth = 0;
     private int mVideoHeight = 0;
     private TextureMovieEncoder2 mTextureMovieEncoder;
-    private boolean isStarted = false;
+    private volatile boolean isStarted = false;
 
     public CapturingManager() {
     }
@@ -78,28 +79,42 @@ public class CapturingManager {
     }
 
     public synchronized boolean isStarted() {
-        return isStarted;
+        synchronized (MUTEX) {
+            return isStarted;
+        }
     }
 
     public void captureFrame(int textureId) {
+        synchronized (MUTEX) {
+            if (!isStarted) {
+                return;
+            }
+        }
         mTextureMovieEncoder.onDrawFrame();
         mFrameProducerThread.getHandler().pushFrame(textureId);
     }
 
     public synchronized void startCapturing() {
-        if (isStarted) {
-            throw new IllegalStateException(" doStop capturing first");
+        synchronized (MUTEX) {
+            if (isStarted) {
+                throw new IllegalStateException(" doStop capturing first");
+            }
         }
         ALog.d(TAG, "--- startCapturing\tpath" + mVideoPath);
         mFrameProducerThread.startRecord();
         mTextureMovieEncoder.doStart();
-        isStarted = true;
+        synchronized (MUTEX) {
+            isStarted = true;
+        }
     }
 
     public synchronized void stopCapturing() {
-        if (!isStarted) return;
-        isStarted = false;
+        synchronized (MUTEX) {
+            if (!isStarted) return;
+            isStarted = false;
+        }
         ALog.d(TAG, "--- stopCapturing");
+        mTextureMovieEncoder.doStop();
         mFrameProducerThread.getHandler().queryStop();
     }
 

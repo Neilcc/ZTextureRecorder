@@ -121,6 +121,7 @@ public class MediaCodecEncoderCore implements IMovieEncoderCore {
 
     @Override
     public void drainEncoder(final boolean endOfStream) {
+        ALog.d(TAG, "drainEncoder");
         mVideoHandler.post(new Runnable() {
             @Override
             public void run() {
@@ -170,8 +171,9 @@ public class MediaCodecEncoderCore implements IMovieEncoderCore {
         }
         if (mVideoRecorderHandlerThread != null) {
             mVideoRecorderHandlerThread.quit();
+            mVideoHandler = null;
         }
-
+        mAudioRecorderThread2.doRelease();
     }
 
     @Override
@@ -181,9 +183,11 @@ public class MediaCodecEncoderCore implements IMovieEncoderCore {
 
     @Override
     public void doPrepare() {
-        if (mVideoHandler != null) {
+        ALog.d(TAG, "dopreaper");
+        if (mVideoHandler == null) {
             mVideoHandler = new Handler(mVideoRecorderHandlerThread.getLooper());
         }
+        mAudioRecorderThread2.doPrepare();
     }
 
     @WorkerThread
@@ -204,6 +208,7 @@ public class MediaCodecEncoderCore implements IMovieEncoderCore {
             isStoped = true;
             STOP_MUTEX.notifyAll();
         }
+        mAudioRecorderThread2.doStop();
     }
 
     /**

@@ -99,7 +99,7 @@ public class MediaRecorderEncoderCore implements IMovieEncoderCore {
 
     @Override
     public void drainEncoder(boolean endOfStream) {
-// ignore
+        //ignore
     }
 
     @Override
