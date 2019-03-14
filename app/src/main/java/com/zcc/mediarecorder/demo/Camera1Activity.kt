@@ -151,6 +151,11 @@ class Camera1Activity : AppCompatActivity(), View.OnClickListener {
         Log.d("zcc", "onact restat")
     }
 
+    override fun onDestroy() {
+        capturingManager.release()
+        super.onDestroy()
+    }
+
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == REQUEST_CODE_PERMISSION) {
