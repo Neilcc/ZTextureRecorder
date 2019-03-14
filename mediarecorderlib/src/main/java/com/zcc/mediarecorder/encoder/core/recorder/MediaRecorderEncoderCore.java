@@ -8,14 +8,14 @@ import android.view.Surface;
 import com.zcc.mediarecorder.ALog;
 import com.zcc.mediarecorder.EventManager;
 import com.zcc.mediarecorder.common.ErrorCode;
-import com.zcc.mediarecorder.encoder.core.IVideoEncoderCore;
+import com.zcc.mediarecorder.encoder.core.IMovieEncoderCore;
 import com.zcc.mediarecorder.encoder.utils.VideoUtils;
 
 import java.io.IOException;
 
 
 @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
-public class MediaRecorderEncoderCore implements IVideoEncoderCore {
+public class MediaRecorderEncoderCore implements IMovieEncoderCore {
     private MediaRecorder mMediaRecorder;
     private int w, h;
     private String outputFile;

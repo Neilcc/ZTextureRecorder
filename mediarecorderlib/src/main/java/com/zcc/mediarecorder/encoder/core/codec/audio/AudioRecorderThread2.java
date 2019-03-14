@@ -246,7 +246,6 @@ public class AudioRecorderThread2 implements ILifeCircle {
                 ALog.w(TAG, "unexpected result from encoder.dequeueOutputBuffer: " +
                         encoderStatus);
             } else {
-
                 ALog.d(TAG, "doStart mux ");
                 mMuxerHolder.waitUntilReady();
                 final ByteBuffer encodedData = encoderOutputBuffers[encoderStatus];

@@ -22,9 +22,6 @@ public class CapturingManager {
     private String mVideoPath;
     private int mVideoWidth = 0;
     private int mVideoHeight = 0;
-    private EGLContext mEglContext;
-    private Texture2dProgram.ProgramType mTextureType;
-    private TextureMovieEncoder2.EncoderType mEncoderType;
     private TextureMovieEncoder2 mTextureMovieEncoder;
     private boolean isStarted = false;
 
@@ -47,13 +44,12 @@ public class CapturingManager {
             this.mVideoHeight = height;
         }
         this.mVideoPath = path;
-        this.mTextureType = textureType;
-        this.mEncoderType = encoderType;
-        this.mEglContext = eglContext;
+        TextureMovieEncoder2.EncoderType mEncoderType = encoderType;
+        EGLContext mEglContext = eglContext;
         if (eglContext == null || eglContext == EGL14.EGL_NO_CONTEXT) {
-            eglContext = EGL14.eglGetCurrentContext();
+            mEglContext = EGL14.eglGetCurrentContext();
         }
-        if (eglContext == EGL14.EGL_NO_CONTEXT) {
+        if (mEglContext == EGL14.EGL_NO_CONTEXT) {
             throw new IllegalStateException("texture egl context required");
         }
         if (mEncoderType == TextureMovieEncoder2.EncoderType.MEDIA_RECORDER
@@ -71,13 +67,13 @@ public class CapturingManager {
             mFrameProducerThread.getHandler().queryStop();
             mFrameProducerThread = null;
         }
-        mTextureMovieEncoder = new TextureMovieEncoder2(mVideoWidth, mVideoHeight, "",
+        mTextureMovieEncoder = new TextureMovieEncoder2(mVideoWidth, mVideoHeight, path,
                 mEncoderType);
         mTextureMovieEncoder.doPrepare();
 
         // it cannot be reused, a new object when you want to reprepare
         mFrameProducerThread = new FrameProducerThread(mVideoWidth, mVideoHeight,
-                mEglContext, mTextureType, mTextureMovieEncoder.getRecordSurface());
+                mEglContext, textureType, mTextureMovieEncoder.getRecordSurface());
         mFrameProducerThread.start();
     }
 
@@ -86,7 +82,7 @@ public class CapturingManager {
     }
 
     public void captureFrame(int textureId) {
-        mTextureMovieEncoder.frameAvailableSoon();
+        mTextureMovieEncoder.onDrawFrame();
         mFrameProducerThread.getHandler().pushFrame(textureId);
     }
 
@@ -108,7 +104,7 @@ public class CapturingManager {
     }
 
     public synchronized void release() {
-        // should reInit before doStart
+        mTextureMovieEncoder.doRelease();
     }
 
 }

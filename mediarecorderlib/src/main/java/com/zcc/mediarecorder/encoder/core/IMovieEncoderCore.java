@@ -4,7 +4,7 @@ import android.view.Surface;
 
 import com.zcc.mediarecorder.common.ILifeCircle;
 
-public interface IVideoEncoderCore extends ILifeCircle {
+public interface IMovieEncoderCore extends ILifeCircle {
 
     public Surface getInputSurface();
 

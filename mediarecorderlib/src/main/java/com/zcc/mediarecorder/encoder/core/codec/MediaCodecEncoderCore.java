@@ -19,13 +19,16 @@ package com.zcc.mediarecorder.encoder.core.codec;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaFormat;
+import android.os.Handler;
+import android.os.HandlerThread;
+import android.support.annotation.WorkerThread;
 import android.util.Log;
 import android.view.Surface;
 
 import com.zcc.mediarecorder.ALog;
 import com.zcc.mediarecorder.EventManager;
 import com.zcc.mediarecorder.common.ErrorCode;
-import com.zcc.mediarecorder.encoder.core.IVideoEncoderCore;
+import com.zcc.mediarecorder.encoder.core.IMovieEncoderCore;
 import com.zcc.mediarecorder.encoder.core.codec.audio.AudioRecorderThread2;
 import com.zcc.mediarecorder.encoder.core.codec.muxer.MuxerHolder;
 import com.zcc.mediarecorder.encoder.utils.VideoUtils;
@@ -43,26 +46,30 @@ import java.nio.ByteBuffer;
  * This class is not thread-safe, with one exception: it is valid to use the input surface
  * on one thread, and drain the output on a different thread.
  */
-public class MediaCodecEncoderCore implements IVideoEncoderCore {
+public class MediaCodecEncoderCore implements IMovieEncoderCore {
     private static final String TAG = "MediaCodecEncoderCore";
     private static final boolean VERBOSE = true;
-
     private static final String MIME_TYPE = "video/avc";    // H.264 Advanced Video Coding
     private static final int FRAME_RATE = 30;               // 30fps
     private static final int FRAME_INTERVAL = 5;           // 5 seconds between I-frames
+    private final Object STOP_MUTEX = new Object();
     private Surface mInputSurface;
     private MuxerHolder mMuxerHolder;
     private AudioRecorderThread2 mAudioRecorderThread2;
-
+    private HandlerThread mVideoRecorderHandlerThread;
+    private Handler mVideoHandler;
     private MediaCodec mEncoder;
     private MediaCodec.BufferInfo mBufferInfo;
     private int mTrackIndex;
+    private volatile boolean isStoped = false;
 
     /**
      * Configures encoder and muxer state, and prepares the input Surface.
      */
     public MediaCodecEncoderCore(int width, int height, String outputFile)
             throws IOException {
+        mVideoRecorderHandlerThread = new HandlerThread("media_codec_video");
+        mVideoRecorderHandlerThread.start();
         mBufferInfo = new MediaCodec.BufferInfo();
         try {
             mMuxerHolder = new MuxerHolder(outputFile);
@@ -113,24 +120,76 @@ public class MediaCodecEncoderCore implements IVideoEncoderCore {
     }
 
     @Override
+    public void drainEncoder(final boolean endOfStream) {
+        mVideoHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                drainEncoderOnWorkerThread(endOfStream);
+            }
+        });
+    }
+
+    @Override
     public void doStart() {
         mAudioRecorderThread2.doStart();
+        synchronized (STOP_MUTEX) {
+            isStoped = false;
+        }
     }
 
     @Override
     public void doStop() {
-
+        mVideoHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                doStopOnWorkerThread();
+            }
+        });
     }
+
 
     /**
      * Releases encoder resources.
+     * If not stop ， core would be stop first
      */
     public void doRelease() {
         if (VERBOSE) Log.d(TAG, "releasing encoder objects");
+        synchronized (STOP_MUTEX) {
+            while (!isStoped) {
+                doStop();
+                try {
+                    STOP_MUTEX.wait();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
         if (mEncoder != null) {
-            mEncoder.stop();
             mEncoder.release();
             mEncoder = null;
+        }
+        if (mVideoRecorderHandlerThread != null) {
+            mVideoRecorderHandlerThread.quit();
+        }
+
+    }
+
+    @Override
+    public long getPTSUs() {
+        return mMuxerHolder.getPTSUs();
+    }
+
+    @Override
+    public void doPrepare() {
+        if (mVideoHandler != null) {
+            mVideoHandler = new Handler(mVideoRecorderHandlerThread.getLooper());
+        }
+    }
+
+    @WorkerThread
+    private void doStopOnWorkerThread() {
+        if (mEncoder != null) {
+            mEncoder.stop();
         }
         if (mMuxerHolder != null) {
             // TODO: doStop() throws an exception if you haven't fed it any data.  Keep track
@@ -140,6 +199,10 @@ public class MediaCodecEncoderCore implements IVideoEncoderCore {
             } catch (Exception e) {
                 e.printStackTrace();
             }
+        }
+        synchronized (STOP_MUTEX) {
+            isStoped = true;
+            STOP_MUTEX.notifyAll();
         }
     }
 
@@ -153,7 +216,8 @@ public class MediaCodecEncoderCore implements IVideoEncoderCore {
      * We're just using the muxer to get a .mp4 file (instead of a raw H.264 stream).  We're
      * not recording audio.
      */
-    public void drainEncoder(boolean endOfStream) {
+    @WorkerThread
+    private void drainEncoderOnWorkerThread(boolean endOfStream) {
         mMuxerHolder.onFrame();
         final int TIMEOUT_USEC = 10000;
         if (VERBOSE) Log.d(TAG, "drainEncoder(" + endOfStream + ")");
@@ -178,12 +242,8 @@ public class MediaCodecEncoderCore implements IVideoEncoderCore {
                 encoderOutputBuffers = mEncoder.getOutputBuffers();
             } else if (encoderStatus == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
                 // should happen before receiving buffers, and should only happen once
-//                if (mMuxerStarted) {
-//                    throw new RuntimeException("format changed twice");
-//                }
                 MediaFormat newFormat = mEncoder.getOutputFormat();
                 Log.d(TAG, "encoder output format changed: " + newFormat);
-
                 // now that we have the Magic Goodies, doStart the muxer
                 mTrackIndex = mMuxerHolder.getMuxer().addTrack(newFormat);
                 mMuxerHolder.setFrameConfig(true);
@@ -207,25 +267,15 @@ public class MediaCodecEncoderCore implements IVideoEncoderCore {
                 }
 
                 if (mBufferInfo.size != 0) {
-//                    if (!mMuxerStarted) {
-//                        throw new RuntimeException("muxer hasn't started");
-//                    }
-
                     // adjust the ByteBuffer values to match BufferInfo (not needed?)
                     encodedData.position(mBufferInfo.offset);
                     encodedData.limit(mBufferInfo.offset + mBufferInfo.size);
-//                    if (mBufferInfo.presentationTimeUs < lastPresentationTime) {
-//                        mBufferInfo.presentationTimeUs = lastPresentationTime += 23219;
-//                    }
-//                    lastPresentationTime = mBufferInfo.presentationTimeUs;
                     mBufferInfo.presentationTimeUs = mMuxerHolder.getPTSUs();
                     mMuxerHolder.getMuxer().writeSampleData(mTrackIndex, encodedData, mBufferInfo);
                     Log.d("presentTime", " video sent " + mBufferInfo.size + " bytes to muxer, ts=" +
                             mBufferInfo.presentationTimeUs);
                 }
-
                 mEncoder.releaseOutputBuffer(encoderStatus, false);
-
                 if ((mBufferInfo.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
                     if (!endOfStream) {
                         Log.w(TAG, "reached end of stream unexpectedly");
@@ -238,13 +288,5 @@ public class MediaCodecEncoderCore implements IVideoEncoderCore {
         }
     }
 
-    @Override
-    public long getPTSUs() {
-        return mMuxerHolder.getPTSUs();
-    }
 
-    @Override
-    public void doPrepare() {
-        // ignore;
-    }
 }
