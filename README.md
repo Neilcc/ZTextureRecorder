@@ -79,5 +79,5 @@ A empty lib currently.
 
 #### Recorder Struct
 
-![StructImg](./doc/projectStruct.jpeg)
+![StructImg2](./doc/projectStructs.jpeg)
 
