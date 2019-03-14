@@ -17,161 +17,87 @@
 package com.zcc.mediarecorder.encoder;
 
 import android.os.Build;
-import android.os.Handler;
-import android.os.Looper;
-import android.os.Message;
-import android.util.Log;
+import android.support.annotation.UiThread;
 import android.view.Surface;
 
 import com.zcc.mediarecorder.ALog;
 import com.zcc.mediarecorder.common.ILifeCircle;
-import com.zcc.mediarecorder.encoder.video.IVideoEncoderCore;
-import com.zcc.mediarecorder.encoder.video.MediaCodecEncoderCore;
+import com.zcc.mediarecorder.encoder.core.IMovieEncoderCore;
+import com.zcc.mediarecorder.encoder.core.codec.MediaCodecEncoderCore;
+import com.zcc.mediarecorder.encoder.core.recorder.MediaRecorderEncoderCore;
 
 import java.io.IOException;
-import java.lang.ref.WeakReference;
 
 import static com.zcc.mediarecorder.encoder.TextureMovieEncoder2.EncoderType.MEDIA_CODEC;
 
-public class TextureMovieEncoder2 implements Runnable, ILifeCircle {
+/**
+ * In theory, encoder should be reused in stop to prepare.
+ * Let's check it. assume that the source and size do not change during restart.
+ * Media recorder and audio record can do this, and MediaCodec can also do it.
+ */
+public class TextureMovieEncoder2 implements ILifeCircle {
     private static final String TAG = "TextureMovieEncoder2";
-    private static final int MSG_STOP_RECORDING = 1;
-    private static final int MSG_FRAME_AVAILABLE = 2;
-    private final Object mReadyFence = new Object();      // guards ready/running
-    private IVideoEncoderCore mVideoEncoder;
-    private volatile EncoderHandler mHandler;
-    private Handler mMainHandler = new Handler(Looper.getMainLooper());
-    private volatile boolean isPrepared = false;
-    private boolean mReady;
-    private boolean mRunning;
+    private IMovieEncoderCore mMovieEncoder;
 
-    /**
-     * Tells the video recorder to start recording.  (Call from non-encoderType thread.)
-     * <p>
-     * Creates a new thread, which will own the provided MediaCodecEncoderCore.  When the
-     * thread exits, the MediaCodecEncoderCore will be released.
-     * <p>
-     * Returns after the recorder thread has started and is ready to accept Messages.
-     */
+    @UiThread
     public TextureMovieEncoder2(int width, int height, String outputFile, EncoderType encoderType) {
-        Log.d(TAG, "EncoderType: startRecording()");
+        ALog.d(TAG, "constructor");
         if (encoderType == null) {
             encoderType = MEDIA_CODEC;
         }
         switch (encoderType) {
             case MEDIA_CODEC:
                 try {
-                    mVideoEncoder = new MediaCodecEncoderCore(width, height, outputFile);
+                    mMovieEncoder = new MediaCodecEncoderCore(width, height, outputFile);
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
-                isPrepared = true;
                 break;
             case MEDIA_RECORDER:
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                    mVideoEncoder = new MediaRecorderEncoderCore(width, height, outputFile);
-                    mMainHandler.post(new Runnable() {
-                        @Override
-                        public void run() {
-                            mVideoEncoder.prepare();
-                            isPrepared = true;
-                        }
-                    });
+                    mMovieEncoder = new MediaRecorderEncoderCore(width, height, outputFile);
+
                 }
                 break;
             default:
                 throw new IllegalStateException("unexpected encoderType type");
         }
-        synchronized (mReadyFence) {
-            if (mRunning) {
-                Log.w(TAG, "EncoderType thread already running");
-                return;
-            }
-            mRunning = true;
-            while (!isPrepared) {
-            }
-            new Thread(this, "TextureMovieEncoder").start();
-            while (!mReady) {
-                try {
-                    mReadyFence.wait();
-                } catch (InterruptedException ie) {
-                    // ignore
-                }
-            }
-        }
     }
 
     public Surface getRecordSurface() {
-        return mVideoEncoder.getInputSurface();
+        ALog.d(TAG, "getRecordSurface");
+        return mMovieEncoder.getInputSurface();
     }
 
-    public long getPTSUs() {
-        return mVideoEncoder.getPTSUs();
-    }
 
-    public boolean isRecording() {
-        synchronized (mReadyFence) {
-            return mRunning;
-        }
-    }
-
-    public void frameAvailableSoon() {
-        synchronized (mReadyFence) {
-            if (!mReady) {
-                return;
-            }
-        }
-        mHandler.sendMessage(mHandler.obtainMessage(MSG_FRAME_AVAILABLE));
+    public void onDrawFrame() {
+        ALog.d(TAG, "onDrawFrame");
+        mMovieEncoder.drainEncoder(false);
     }
 
     @Override
-    public void run() {
-        // Establish a Looper for this thread, and define a Handler for it.
-        Looper.prepare();
-        synchronized (mReadyFence) {
-            mHandler = new EncoderHandler(this);
-            mVideoEncoder.prepare();
-            mReady = true;
-            mReadyFence.notify();
-        }
-        Looper.loop();
-
-        Log.d(TAG, "EncoderType thread exiting");
-        synchronized (mReadyFence) {
-            mReady = mRunning = false;
-            mHandler = null;
-        }
-    }
-
-    private void handleFrameAvailable() {
-        ALog.dd("handleFrameAvailable");
-        mVideoEncoder.drainEncoder(false);
-    }
-
-    private void handleStopRecording() {
-        ALog.dd("handleStopRecording");
-        mVideoEncoder.drainEncoder(true);
-        mVideoEncoder.release();
+    public void doStart() {
+        ALog.d(TAG, "doStart");
+        mMovieEncoder.doStart();
     }
 
     @Override
-    public void start() {
-        mVideoEncoder.start();
+    public void doStop() {
+        ALog.d(TAG, "doStop");
+        mMovieEncoder.drainEncoder(true);
+        mMovieEncoder.doStop();
     }
 
     @Override
-    public void stop() {
-        mHandler.sendMessage(mHandler.obtainMessage(MSG_STOP_RECORDING));
+    public void doRelease() {
+        ALog.d(TAG, "doRelease");
+        mMovieEncoder.doRelease();
     }
 
     @Override
-    public void release() {
-
-    }
-
-    @Override
-    public void prepare() {
-
+    public void doPrepare() {
+        ALog.d(TAG, "doPrepare");
+        mMovieEncoder.doPrepare();
     }
 
     public enum EncoderType {
@@ -179,35 +105,4 @@ public class TextureMovieEncoder2 implements Runnable, ILifeCircle {
         MEDIA_CODEC
     }
 
-    private static class EncoderHandler extends Handler {
-        private WeakReference<TextureMovieEncoder2> mWeakEncoder;
-
-        public EncoderHandler(TextureMovieEncoder2 encoder) {
-            mWeakEncoder = new WeakReference<>(encoder);
-        }
-
-        @Override  // runs on encoder thread
-        public void handleMessage(Message inputMessage) {
-            int what = inputMessage.what;
-            Object obj = inputMessage.obj;
-
-            TextureMovieEncoder2 encoder = mWeakEncoder.get();
-            if (encoder == null) {
-                Log.w(TAG, "EncoderHandler.handleMessage: encoder is null");
-                return;
-            }
-
-            switch (what) {
-                case MSG_STOP_RECORDING:
-                    encoder.handleStopRecording();
-                    Looper.myLooper().quit();
-                    break;
-                case MSG_FRAME_AVAILABLE:
-                    encoder.handleFrameAvailable();
-                    break;
-                default:
-                    throw new RuntimeException("Unhandled msg what=" + what);
-            }
-        }
-    }
 }

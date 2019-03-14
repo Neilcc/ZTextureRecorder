@@ -2,11 +2,12 @@ package com.zcc.mediarecorder.common;
 
 public interface ILifeCircle {
 
-    void start();
+    void doPrepare();
 
-    void stop();
+    void doStart();
 
-    void release();
+    void doStop();
 
-    void prepare();
+    void doRelease();
+
 }

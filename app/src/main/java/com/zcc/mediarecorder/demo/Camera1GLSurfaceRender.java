@@ -9,8 +9,8 @@ import android.os.Handler;
 import android.os.Looper;
 
 import com.zcc.mediarecorder.demo.utils.Camera1Manager;
-import com.zcc.mediarecorder.gles.FullFrameRect;
-import com.zcc.mediarecorder.gles.Texture2dProgram;
+import com.zcc.mediarecorder.frameproducer.gles.FullFrameRect;
+import com.zcc.mediarecorder.frameproducer.gles.Texture2dProgram;
 
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -42,7 +42,6 @@ public class Camera1GLSurfaceRender implements GLSurfaceView.Renderer, Camera.Pr
         this.mMainHandler = new Handler(Looper.getMainLooper());
         this.mActivity = activity;
         this.mGLSurface = mGLSurface;
-
     }
 
     public void setOnTextureRendListener(OnTextureRendListener onTextureRendListener) {

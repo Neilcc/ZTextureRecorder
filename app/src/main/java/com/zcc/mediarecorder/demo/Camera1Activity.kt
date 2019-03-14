@@ -6,17 +6,17 @@ import android.content.pm.PackageManager
 import android.graphics.PixelFormat
 import android.opengl.GLSurfaceView
 import android.os.Bundle
+import android.support.v4.app.ActivityCompat
+import android.support.v4.content.ContextCompat
+import android.support.v7.app.AppCompatActivity
 import android.util.Log
 import android.view.View
 import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
 import com.zcc.mediarecorder.CapturingManager
 import com.zcc.mediarecorder.encoder.TextureMovieEncoder2
-import com.zcc.mediarecorder.gles.Texture2dProgram
+import com.zcc.mediarecorder.frameproducer.gles.Texture2dProgram
 
 class Camera1Activity : AppCompatActivity(), View.OnClickListener {
     private val recordButton: Button by lazy {
@@ -41,9 +41,26 @@ class Camera1Activity : AppCompatActivity(), View.OnClickListener {
     private var currentEncoderType: TextureMovieEncoder2.EncoderType = TextureMovieEncoder2.EncoderType.MEDIA_RECORDER
     private var isRecordingNow = false
 
+    override fun onStart() {
+        super.onStart()
+        Log.d("zcc", "onact start")
+    }
+
+    override fun onResumeFragments() {
+        super.onResumeFragments()
+        Log.d("zcc", "onact resume")
+    }
+
+
+    override fun onStop() {
+        super.onStop()
+        Log.d("zcc", "onact stop")
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Log.d("zcc", "onact create")
+
         setContentView(R.layout.activity_main)
         recordButton.setOnClickListener(this)
         encodeButton.setOnClickListener(this)
@@ -54,6 +71,7 @@ class Camera1Activity : AppCompatActivity(), View.OnClickListener {
         } else {
             initCameraSurface()
         }
+
     }
 
     private fun initGLSurface() {
@@ -119,11 +137,18 @@ class Camera1Activity : AppCompatActivity(), View.OnClickListener {
     override fun onResume() {
         super.onResume()
         cameraGLSurface.onResume()
+        Log.d("zcc", "onact onreusme")
     }
 
     override fun onPause() {
         cameraGLSurface.onPause()
+        Log.d("zcc", "onact onpause")
         super.onPause()
+    }
+
+    override fun onRestart() {
+        super.onRestart()
+        Log.d("zcc", "onact restat")
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
