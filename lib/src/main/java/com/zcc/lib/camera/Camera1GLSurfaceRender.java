@@ -1,4 +1,4 @@
-package com.zcc.mediarecorder.demo;
+package com.zcc.lib.camera;
 
 import android.app.Activity;
 import android.graphics.SurfaceTexture;
@@ -8,10 +8,10 @@ import android.opengl.GLSurfaceView;
 import android.os.Handler;
 import android.os.Looper;
 
-import com.zcc.mediarecorder.demo.utils.Camera1Manager;
 import com.zcc.mediarecorder.frameproducer.gles.FullFrameRect;
 import com.zcc.mediarecorder.frameproducer.gles.Texture2dProgram;
 
+import java.io.IOException;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -90,8 +90,12 @@ public class Camera1GLSurfaceRender implements GLSurfaceView.Renderer, Camera.Pr
                 this.mMainHandler.post(new Runnable() {
                     @Override
                     public void run() {
-                        mCamera1Manager.initCamera(mActivity, surfaceW, surfaceH, mCameraSurfaceTexture,
-                                Camera1GLSurfaceRender.this);
+                        try {
+                            mCamera1Manager.initCameraWithTargetSize(mActivity, surfaceW, surfaceH, mCameraSurfaceTexture,
+                                    Camera1GLSurfaceRender.this);
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
                         tobeInit = false;
                     }
                 });
@@ -148,11 +152,16 @@ public class Camera1GLSurfaceRender implements GLSurfaceView.Renderer, Camera.Pr
 
     public void initCamera() {
         synchronized (MUTEX) {
-            if (surfaceW != 0 && surfaceH != 0)
-                mCamera1Manager.initCamera(mActivity, surfaceW, surfaceH, mCameraSurfaceTexture,
-                        Camera1GLSurfaceRender.this);
-            else
+            if (surfaceW != 0 && surfaceH != 0) {
+                try {
+                    mCamera1Manager.initCameraWithTargetSize(mActivity, surfaceW, surfaceH, mCameraSurfaceTexture,
+                            Camera1GLSurfaceRender.this);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            } else {
                 tobeInit = true;
+            }
         }
     }
 
