@@ -119,7 +119,10 @@ public class CapturingManager {
     }
 
     public synchronized void release() {
-        mTextureMovieEncoder.doRelease();
+        if(mTextureMovieEncoder != null) {
+            mTextureMovieEncoder.doRelease();
+        }
+
     }
 
 }

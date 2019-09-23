@@ -16,6 +16,7 @@ import android.widget.TextView
 import android.widget.Toast
 import com.zcc.lib.camera.Camera1GLSurfaceRender
 import com.zcc.mediarecorder.CapturingManager
+import com.zcc.mediarecorder.demo.utils.FullFrameRectGLRender
 import com.zcc.mediarecorder.encoder.TextureMovieEncoder2
 import com.zcc.mediarecorder.frameproducer.gles.Texture2dProgram
 
@@ -33,7 +34,7 @@ class Camera1Activity : AppCompatActivity(), View.OnClickListener {
         findViewById<GLSurfaceView>(R.id.sv_camera)
     }
     private val camera1SurfaceRender: Camera1GLSurfaceRender by lazy {
-        Camera1GLSurfaceRender(this, cameraGLSurface)
+        Camera1GLSurfaceRender(this, cameraGLSurface, FullFrameRectGLRender())
     }
     private val capturingManager: CapturingManager by lazy {
         CapturingManager()

@@ -8,8 +8,7 @@ import android.opengl.GLSurfaceView;
 import android.os.Handler;
 import android.os.Looper;
 
-import com.zcc.mediarecorder.frameproducer.gles.FullFrameRect;
-import com.zcc.mediarecorder.frameproducer.gles.Texture2dProgram;
+import com.zcc.lib.IGLRender;
 
 import java.io.IOException;
 import java.util.concurrent.BlockingQueue;
@@ -27,7 +26,8 @@ public class Camera1GLSurfaceRender implements GLSurfaceView.Renderer, Camera.Pr
     private int surfaceW = 0;
     private int surfaceH = 0;
     private int mCameraTextureId = 0;
-    private FullFrameRect mScreenDisplay;
+    //    private FullFrameRect mScreenDisplay;
+    private IGLRender iglRender;
     private SurfaceTexture mCameraSurfaceTexture;
     private Handler mMainHandler;
     private Activity mActivity;
@@ -37,11 +37,12 @@ public class Camera1GLSurfaceRender implements GLSurfaceView.Renderer, Camera.Pr
     private OnTextureRendListener onTextureRendListener;
     private BlockingQueue<Runnable> blockingQueue = new LinkedBlockingQueue<>();
 
-    public Camera1GLSurfaceRender(Activity activity, GLSurfaceView mGLSurface) {
+    public Camera1GLSurfaceRender(Activity activity, GLSurfaceView mGLSurface, IGLRender iglRender) {
         this.mCamera1Manager = new Camera1Manager();
         this.mMainHandler = new Handler(Looper.getMainLooper());
         this.mActivity = activity;
         this.mGLSurface = mGLSurface;
+        this.iglRender = iglRender;
     }
 
     public void setOnTextureRendListener(OnTextureRendListener onTextureRendListener) {
@@ -75,8 +76,8 @@ public class Camera1GLSurfaceRender implements GLSurfaceView.Renderer, Camera.Pr
 
     @Override
     public void onSurfaceCreated(GL10 gl, EGLConfig config) {
-        mScreenDisplay = new FullFrameRect(new Texture2dProgram(Texture2dProgram.ProgramType.TEXTURE_EXT));
-        mCameraTextureId = mScreenDisplay.createTextureObject();
+
+        mCameraTextureId = iglRender.createTexture();
         mCameraSurfaceTexture = new SurfaceTexture(mCameraTextureId);
         GLES20.glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
     }
@@ -142,7 +143,8 @@ public class Camera1GLSurfaceRender implements GLSurfaceView.Renderer, Camera.Pr
             float[] mtx = new float[16];
             mCameraSurfaceTexture.updateTexImage();
             mCameraSurfaceTexture.getTransformMatrix(mtx);
-            mScreenDisplay.drawFrame(mCameraTextureId, mtx);
+//            mScreenDisplay.drawFrame(mCameraTextureId, mtx);
+            iglRender.rend(mCameraTextureId, mtx);
             if (onTextureRendListener != null) {
                 onTextureRendListener.onFrame(mCameraTextureId);
             }
