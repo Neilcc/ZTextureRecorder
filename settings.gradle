@@ -1,1 +1,1 @@
-include ':app', ':mediarecorderlib', ':mediadecorderlib', ':glrender', ':lib'
+include ':app', ':mediarecorderlib', ':mediadecorderlib', ':glrender', ':cameralib'

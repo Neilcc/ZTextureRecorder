@@ -8,8 +8,6 @@ import android.opengl.GLSurfaceView;
 import android.os.Handler;
 import android.os.Looper;
 
-import com.zcc.lib.IGLRender;
-
 import java.io.IOException;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -22,12 +20,12 @@ import javax.microedition.khronos.opengles.GL10;
 public class Camera1GLSurfaceRender implements GLSurfaceView.Renderer, Camera.PreviewCallback {
 
     private final Object MUTEX = new Object();
+
     private Camera1Manager mCamera1Manager;
-    private int surfaceW = 0;
-    private int surfaceH = 0;
+    private int mSurfaceW = 0;
+    private int mSurfaceH = 0;
     private int mCameraTextureId = 0;
-    //    private FullFrameRect mScreenDisplay;
-    private IGLRender iglRender;
+    private IGLRender mGLRender;
     private SurfaceTexture mCameraSurfaceTexture;
     private Handler mMainHandler;
     private Activity mActivity;
@@ -42,7 +40,7 @@ public class Camera1GLSurfaceRender implements GLSurfaceView.Renderer, Camera.Pr
         this.mMainHandler = new Handler(Looper.getMainLooper());
         this.mActivity = activity;
         this.mGLSurface = mGLSurface;
-        this.iglRender = iglRender;
+        this.mGLRender = iglRender;
     }
 
     public void setOnTextureRendListener(OnTextureRendListener onTextureRendListener) {
@@ -54,18 +52,18 @@ public class Camera1GLSurfaceRender implements GLSurfaceView.Renderer, Camera.Pr
     }
 
     public int getSurfaceW() {
-        return surfaceW;
+        return mSurfaceW;
     }
 
     public int getSurfaceH() {
-        return surfaceH;
+        return mSurfaceH;
     }
 
-    public int getCameraW() {
+    public int getCameraTextureW() {
         return mCamera1Manager.getPreviewSize().width;
     }
 
-    public int getCameraH() {
+    public int getCameraTextureH() {
         return mCamera1Manager.getPreviewSize().height;
     }
 
@@ -76,8 +74,7 @@ public class Camera1GLSurfaceRender implements GLSurfaceView.Renderer, Camera.Pr
 
     @Override
     public void onSurfaceCreated(GL10 gl, EGLConfig config) {
-
-        mCameraTextureId = iglRender.createTexture();
+        mCameraTextureId = mGLRender.createTexture();
         mCameraSurfaceTexture = new SurfaceTexture(mCameraTextureId);
         GLES20.glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
     }
@@ -85,14 +82,14 @@ public class Camera1GLSurfaceRender implements GLSurfaceView.Renderer, Camera.Pr
     @Override
     public void onSurfaceChanged(GL10 gl, int width, int height) {
         synchronized (MUTEX) {
-            this.surfaceH = height;
-            this.surfaceW = width;
+            this.mSurfaceH = height;
+            this.mSurfaceW = width;
             if (tobeInit) {
                 this.mMainHandler.post(new Runnable() {
                     @Override
                     public void run() {
                         try {
-                            mCamera1Manager.initCameraWithTargetSize(mActivity, surfaceW, surfaceH, mCameraSurfaceTexture,
+                            mCamera1Manager.initCameraWithTargetSize(mActivity, mSurfaceW, mSurfaceH, mCameraSurfaceTexture,
                                     Camera1GLSurfaceRender.this);
                         } catch (IOException e) {
                             e.printStackTrace();
@@ -104,22 +101,21 @@ public class Camera1GLSurfaceRender implements GLSurfaceView.Renderer, Camera.Pr
         }
     }
 
+
     private void calcAndSetViewport() {
         if (mCamera1Manager.getPreviewSize() == null) {
-            GLES20.glViewport(0, 0, surfaceW, surfaceH);
+            GLES20.glViewport(0, 0, mSurfaceW, mSurfaceH);
         } else {
-            float ratioSurface = surfaceW * 1.0f / surfaceH;
+            float ratioSurface = mSurfaceW * 1.0f / mSurfaceH;
             float ratioCam = mCamera1Manager.getPreviewSize().width * 1.0f / mCamera1Manager.getPreviewSize().height;
-            if (ratioSurface >= ratioCam) {
-                float trimHR = surfaceH * 1.0f / mCamera1Manager.getPreviewSize().height;
-                int trimW = (int) (mCamera1Manager.getPreviewSize().height * trimHR);
-                int delta = (surfaceW - trimW) / 2;
-                GLES20.glViewport(delta, 0, trimW, surfaceH);
+            if (ratioCam < ratioSurface) {
+                int trimW = (int) (ratioCam * mSurfaceH);
+                int delta = (mSurfaceW - trimW) / 2;
+                GLES20.glViewport(delta, 0, trimW, mSurfaceH);
             } else {
-                float trimWR = surfaceW * 1.0f / mCamera1Manager.getPreviewSize().height;
-                int trimH = (int) (mCamera1Manager.getPreviewSize().height * trimWR);
-                int delta = (surfaceH - mCamera1Manager.getPreviewSize().height) / 2;
-                GLES20.glViewport(0, delta, surfaceW, trimH);
+                int trimH = (int) (mSurfaceW / ratioCam);
+                int delta = (mSurfaceH - mCamera1Manager.getPreviewSize().height) / 2;
+                GLES20.glViewport(0, delta, mSurfaceW, trimH);
             }
         }
     }
@@ -143,8 +139,7 @@ public class Camera1GLSurfaceRender implements GLSurfaceView.Renderer, Camera.Pr
             float[] mtx = new float[16];
             mCameraSurfaceTexture.updateTexImage();
             mCameraSurfaceTexture.getTransformMatrix(mtx);
-//            mScreenDisplay.drawFrame(mCameraTextureId, mtx);
-            iglRender.rend(mCameraTextureId, mtx);
+            mGLRender.rend(mCameraTextureId, mtx);
             if (onTextureRendListener != null) {
                 onTextureRendListener.onFrame(mCameraTextureId);
             }
@@ -154,9 +149,9 @@ public class Camera1GLSurfaceRender implements GLSurfaceView.Renderer, Camera.Pr
 
     public void initCamera() {
         synchronized (MUTEX) {
-            if (surfaceW != 0 && surfaceH != 0) {
+            if (mSurfaceW != 0 && mSurfaceH != 0) {
                 try {
-                    mCamera1Manager.initCameraWithTargetSize(mActivity, surfaceW, surfaceH, mCameraSurfaceTexture,
+                    mCamera1Manager.initCameraWithTargetSize(mActivity, mSurfaceW, mSurfaceH, mCameraSurfaceTexture,
                             Camera1GLSurfaceRender.this);
                 } catch (IOException e) {
                     e.printStackTrace();

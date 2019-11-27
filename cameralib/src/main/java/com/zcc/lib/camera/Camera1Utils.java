@@ -75,11 +75,8 @@ public class Camera1Utils {
         Camera.Parameters params = camera.getParameters();
         params.setPreviewSize(optimalPreviewSize.width, optimalPreviewSize.height);
         params.setPreviewFormat(ImageFormat.NV21);
-
         // set Camera parameters
         camera.setParameters(params);
-        params = camera.getParameters();
-        optimalPreviewSize = params.getPreviewSize();
-        return optimalPreviewSize;
+        return camera.getParameters().getPreviewSize();
     }
 }

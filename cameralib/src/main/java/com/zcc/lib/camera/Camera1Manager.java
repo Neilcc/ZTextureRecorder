@@ -41,13 +41,11 @@ public class Camera1Manager implements Camera.PreviewCallback {
             // texture size
             mPreviewSize = Camera1Utils.setCameraPreviewSizeAndCodec(targetPreviewWidth, targetPreviewHeight, mCamera);
             previewBuffer = new byte[mPreviewSize.width * mPreviewSize.height * 3 / 2];
-            mCamera.addCallbackBuffer(previewBuffer);
 
+            mCamera.addCallbackBuffer(previewBuffer);
             mCamera.setPreviewTexture(cameraSurfaceTexture);
             mCamera.setPreviewCallbackWithBuffer(this);
-
             mCamera.startPreview();
-
         }
     }
 

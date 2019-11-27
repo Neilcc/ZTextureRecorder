@@ -1,4 +1,4 @@
-package com.zcc.lib;
+package com.zcc.lib.camera;
 
 /**
  * Created by cc on 2019-09-19.

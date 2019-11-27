@@ -122,7 +122,7 @@ class Camera1Activity : AppCompatActivity(), View.OnClickListener {
             val path = CapturingManager.getDirectoryDCIM() + TEST_FILE_NAME
             tvVideoPath.text = path
             camera1SurfaceRender.runOnGLThread {
-                capturingManager.initCapturing(camera1SurfaceRender.cameraW, camera1SurfaceRender.cameraH,
+                capturingManager.initCapturing(camera1SurfaceRender.cameraTextureW, camera1SurfaceRender.cameraTextureH,
                         path,
                         Texture2dProgram.ProgramType.TEXTURE_EXT, currentEncoderType, null)
                 capturingManager.startCapturing()

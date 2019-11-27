@@ -2,7 +2,7 @@ package com.zcc.mediarecorder.demo.utils;
 
 import com.zcc.glrender.grafika.gles.FullFrameRect;
 import com.zcc.glrender.grafika.gles.Texture2dProgram;
-import com.zcc.lib.IGLRender;
+import com.zcc.lib.camera.IGLRender;
 
 /**
  * Created by cc on 2019-09-19.
