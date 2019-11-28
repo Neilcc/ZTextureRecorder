@@ -1,11 +1,9 @@
-package com.zcc.lib.camera;
+package com.zcc.lib.camera.camera1;
 
 import android.app.Activity;
 import android.graphics.SurfaceTexture;
 import android.hardware.Camera;
 import android.util.Log;
-
-import com.zcc.lib.camera.Camera1Utils;
 
 import java.io.IOException;
 

@@ -14,7 +14,7 @@ import android.view.View
 import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
-import com.zcc.lib.camera.Camera1GLSurfaceRender
+import com.zcc.lib.camera.camera1.Camera1GLSurfaceRender
 import com.zcc.mediarecorder.CapturingManager
 import com.zcc.mediarecorder.demo.utils.FullFrameRectGLRender
 import com.zcc.mediarecorder.encoder.TextureMovieEncoder2

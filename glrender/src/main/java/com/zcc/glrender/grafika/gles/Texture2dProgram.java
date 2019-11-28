@@ -20,6 +20,8 @@ import android.opengl.GLES11Ext;
 import android.opengl.GLES20;
 import android.util.Log;
 
+import com.zcc.glrender.ShaderLoader;
+
 import java.nio.FloatBuffer;
 
 /**
@@ -134,7 +136,9 @@ public class Texture2dProgram {
                 break;
             case TEXTURE_EXT:
                 mTextureTarget = GLES11Ext.GL_TEXTURE_EXTERNAL_OES;
-                mProgramHandle = GlUtil.createProgram(VERTEX_SHADER, FRAGMENT_SHADER_EXT);
+//                mProgramHandle = GlUtil.createProgram(VERTEX_SHADER, FRAGMENT_SHADER_EXT);
+                mProgramHandle = GlUtil.createProgram(ShaderLoader.getVertextShader(), ShaderLoader.getFragmentShaderExt());
+
                 break;
             case TEXTURE_EXT_BW:
                 mTextureTarget = GLES11Ext.GL_TEXTURE_EXTERNAL_OES;

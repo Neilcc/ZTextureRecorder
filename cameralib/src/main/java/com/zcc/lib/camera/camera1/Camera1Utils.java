@@ -1,4 +1,4 @@
-package com.zcc.lib.camera;
+package com.zcc.lib.camera.camera1;
 
 import android.app.Activity;
 import android.graphics.ImageFormat;
@@ -11,7 +11,7 @@ import java.util.List;
  * Created by cc on 2019-09-19.
  */
 public class Camera1Utils {
-    private static final double MIN_RATIO_DIFF = 0.2;
+    private static final double MIN_RATIO_DIFF = 0.02;
 
     public static int getCorrectCameraOrientation(Activity currentActivity, Camera.CameraInfo info) {
         int rotation = currentActivity.getWindowManager().getDefaultDisplay().getRotation();
@@ -73,6 +73,7 @@ public class Camera1Utils {
         Camera.Size optimalPreviewSize = getOptimalPreviewSize(mSupportedPreviewSizes, width, height);
         // get Camera parameters
         Camera.Parameters params = camera.getParameters();
+        // 前置摄像头，需要转置
         params.setPreviewSize(optimalPreviewSize.width, optimalPreviewSize.height);
         params.setPreviewFormat(ImageFormat.NV21);
         // set Camera parameters

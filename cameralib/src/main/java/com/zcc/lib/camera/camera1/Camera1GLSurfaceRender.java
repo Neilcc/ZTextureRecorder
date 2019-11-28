@@ -1,4 +1,4 @@
-package com.zcc.lib.camera;
+package com.zcc.lib.camera.camera1;
 
 import android.app.Activity;
 import android.graphics.SurfaceTexture;
@@ -7,6 +7,8 @@ import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
 import android.os.Handler;
 import android.os.Looper;
+
+import com.zcc.lib.camera.IGLRender;
 
 import java.io.IOException;
 import java.util.concurrent.BlockingQueue;
@@ -98,26 +100,27 @@ public class Camera1GLSurfaceRender implements GLSurfaceView.Renderer, Camera.Pr
                     }
                 });
             }
+//            GLES20.glViewport(0, 0, width, height);
         }
     }
 
 
     private void calcAndSetViewport() {
-        if (mCamera1Manager.getPreviewSize() == null) {
+//        if (mCamera1Manager.getPreviewSize() == null) {
             GLES20.glViewport(0, 0, mSurfaceW, mSurfaceH);
-        } else {
-            float ratioSurface = mSurfaceW * 1.0f / mSurfaceH;
-            float ratioCam = mCamera1Manager.getPreviewSize().width * 1.0f / mCamera1Manager.getPreviewSize().height;
-            if (ratioCam < ratioSurface) {
-                int trimW = (int) (ratioCam * mSurfaceH);
-                int delta = (mSurfaceW - trimW) / 2;
-                GLES20.glViewport(delta, 0, trimW, mSurfaceH);
-            } else {
-                int trimH = (int) (mSurfaceW / ratioCam);
-                int delta = (mSurfaceH - mCamera1Manager.getPreviewSize().height) / 2;
-                GLES20.glViewport(0, delta, mSurfaceW, trimH);
-            }
-        }
+//        } else {
+//            float ratioSurface = mSurfaceW * 1.0f / mSurfaceH;
+//            float ratioCam = mCamera1Manager.getPreviewSize().width * 1.0f / mCamera1Manager.getPreviewSize().height;
+//            if (ratioCam < ratioSurface) {
+//                int trimW = (int) (ratioCam * mSurfaceH);
+//                int delta = (mSurfaceW - trimW) / 2;
+//                GLES20.glViewport(delta, 0, trimW, mSurfaceH);
+//            } else {
+//                int trimH = (int) (mSurfaceW / ratioCam);
+//                int delta = (mSurfaceH - mCamera1Manager.getPreviewSize().height) / 2;
+//                GLES20.glViewport(0, delta, mSurfaceW, trimH);
+//            }
+//        }
     }
 
     @Override
