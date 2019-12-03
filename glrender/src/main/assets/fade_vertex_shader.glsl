@@ -6,6 +6,5 @@ varying vec2 vTextureCoord;
 
 void main() {
     gl_Position = uMVPMatrix * aPosition;
-    //    vTextureCoord = (uTexMatrix * aTextureCoord).xy;
     vTextureCoord = (uTexMatrix * aTextureCoord).xy;
 }
